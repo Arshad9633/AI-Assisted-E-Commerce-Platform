@@ -1,20 +1,23 @@
-# This Dockerfile assumes you'll later add a Vite React app (dist folder after build).
-# Until then, we serve a tiny placeholder page with nginx.
-
-# Build stage (used later when you add real frontend code)
-FROM node:20 AS build
+# ---------- Build stage ----------
+FROM node:20-alpine AS build
 WORKDIR /app
-# When you add code:
-# COPY package.json package-lock.json ./
-# RUN npm ci
-# COPY . .
-# ARG VITE_API_BASE
-# ENV VITE_API_BASE=$VITE_API_BASE
-# RUN npm run build
 
-# Runtime: serve static files
+# Install deps first (better layer caching)
+COPY package*.json ./
+RUN npm ci
+
+# Copy source and build
+COPY . .
+# Pass your API base at build time if you use import.meta.env.VITE_API_BASE
+# docker build --build-arg VITE_API_BASE=http://localhost:8080 -t frontend .
+ARG VITE_API_BASE
+ENV VITE_API_BASE=$VITE_API_BASE
+RUN npm run build
+
+# ---------- Runtime stage ----------
 FROM nginx:stable-alpine
-# Placeholder index.html so the image works now
-RUN mkdir -p /usr/share/nginx/html
-RUN printf '<!doctype html><html><head><meta charset="utf-8"><title>Frontend Placeholder</title></head><body><h1>Frontend container is up.</h1><p>Add your React app to replace this page.</p></body></html>' > /usr/share/nginx/html/index.html
+# Copy a minimal nginx config with SPA fallback
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Copy built assets
+COPY --from=build /app/dist /usr/share/nginx/html
 EXPOSE 80

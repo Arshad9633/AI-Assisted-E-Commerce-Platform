@@ -1,0 +1,12 @@
+# env files
+.env
+**/.env
+
+# build outputs
+target/
+**/target/
+
+# IDE
+.idea/
+.vscode/
+*.iml

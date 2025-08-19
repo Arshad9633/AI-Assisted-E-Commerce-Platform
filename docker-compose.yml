@@ -19,15 +19,13 @@ services:
 
   backend:
     build:
-      context: ./backend
+      context: ./Backend
       dockerfile: Dockerfile
     container_name: backend
     ports:
-      - "8000:8000"   # ensure your Spring app runs on server.port=8000
+      - "8000:8000"
     environment:
-      # point Spring to Mongo running in the 'mongodb' service
-      MONGO_URI: mongodb://mongodb:27017/shopdb
-      # add any secrets here or via a .env file
+      MONGO_URI: mongodb://mongodb:27017/ecommerceDB
       JWT_SECRET: ${JWT_SECRET:-dev-secret}
     depends_on:
       mongodb:
@@ -42,9 +40,8 @@ services:
       dockerfile: Dockerfile
     container_name: frontend
     ports:
-      - "3000:3000"   # if using CRA dev server; if nginx, use "3000:80"
+      - "3000:3000"
     environment:
-      # For Vite/CRA, set your API base (adjust to your setup)
       VITE_API_BASE: http://localhost:8000
     depends_on:
       - backend
