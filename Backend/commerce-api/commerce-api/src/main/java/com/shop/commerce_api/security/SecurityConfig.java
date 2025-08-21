@@ -43,6 +43,11 @@ public class SecurityConfig {
                         // Allow Spring error page (avoid 403 when an exception forwards to /error)
                         .requestMatchers("/error", "/error/**").permitAll()
 
+                        // Three Pages:
+                        .requestMatchers("/home").permitAll()
+                        .requestMatchers("/home/user").hasAnyRole("USER", "ADMIN")
+                        .requestMatchers("/home/admin").hasRole("ADMIN")
+
                         // Admin-only endpoints
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
 

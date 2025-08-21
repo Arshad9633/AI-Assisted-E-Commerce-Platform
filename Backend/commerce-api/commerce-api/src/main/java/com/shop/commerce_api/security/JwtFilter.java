@@ -25,9 +25,11 @@ public class JwtFilter extends OncePerRequestFilter { // <-- implements jakarta.
     private UserDetailsServiceImpl userDetailsService;
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request,
-                                    HttpServletResponse response,
-                                    FilterChain filterChain) throws ServletException, IOException {
+    protected void doFilterInternal(
+            HttpServletRequest request,
+            HttpServletResponse response,
+            FilterChain filterChain
+    ) throws ServletException, IOException {
 
         String jwt = resolveToken(request);
         if (jwt != null && jwtUtils.validateJwt(jwt)) {
@@ -47,14 +49,20 @@ public class JwtFilter extends OncePerRequestFilter { // <-- implements jakarta.
     @Override
     protected boolean shouldNotFilter(jakarta.servlet.http.HttpServletRequest request) {
         String p = request.getServletPath();
-        return p.startsWith("/api/auth/") || p.startsWith("/error");
+        return p.startsWith("/api/auth/")
+                || p.startsWith("/error")
+                || p.equals("/home");
     }
 
 
     private String resolveToken(HttpServletRequest request) {
         String header = request.getHeader("Authorization");
-        if (StringUtils.hasText(header) && header.startsWith("Bearer ")) {
-            return header.substring(7);
+        if (StringUtils.hasText(header)) {
+            // accept case-insensitive "Bearer"
+            String prefix = "Bearer ";
+            if (header.regionMatches(true, 0, prefix, 0, prefix.length())) {
+                return header.substring(prefix.length());
+            }
         }
         return null;
     }
