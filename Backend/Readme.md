@@ -156,18 +156,36 @@ SPRING_DATA_MONGODB_URI=mongodb://localhost:27017/ecommerce
 
 ---
 
-## 📌 Next Steps
-- Add **Admin Panel** with "Promote to Admin" endpoint
-- Extend auth with **refresh tokens**
-- Add **account verification** (email/OTP)
+# Route Auth (Spring Boot + MongoDB + JWT)
 
----
+This backend exposes three pages with different access levels:
 
-## 🤝 Contributing
-1. Fork the repo
-2. Create a new branch (`feature/xyz`)
-3. Commit your changes
-4. Open a Pull Request
+| Route              | Who can access          | Notes              |
+|--------------------|-------------------------|--------------------|
+| `GET /home`        | Anyone                  | Public landing     |
+| `GET /home/user`   | Logged-in USER or ADMIN | Requires JWT       |
+| `GET /home/admin`  | ADMIN only              | Requires JWT       |
 
----
+## How it works
+
+- **JWT** is issued at `POST /api/auth/signin`. Send it on future requests as `Authorization: Bearer <token>`.
+- **Security filter** (`JwtFilter`) reads the header, validates the token, loads the user from Mongo, and sets the authentication in the SecurityContext.
+- **Authorities** are built from `User.roles` as `ROLE_CUSTOMER` and `ROLE_ADMIN` by `UserDetailsServiceImpl`.
+- **Route rules** (in `SecurityConfig`):
+  ```java
+  .requestMatchers("/home").permitAll()
+  .requestMatchers("/home/user").hasAnyRole("CUSTOMER", "ADMIN")
+  .requestMatchers("/home/admin").hasRole("ADMIN")
+  ```
+- **Models**:
+  - `ERole { CUSTOMER, ADMIN }`
+  - `Role { id, name: ERole }`
+  - `User { id, name, email, password, roles: Set<Role> }`
+
+## Configuration
+
+Use environment variables (via Docker Compose) or `application.properties`.
+
+
+
 
