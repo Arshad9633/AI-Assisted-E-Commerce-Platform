@@ -10,7 +10,7 @@ export default function AuthLayout({ title, subtitle, children }) {
           {children}
         </div>
         <p className="mt-6 text-center text-xs text-gray-500">
-          © {new Date().getFullYear()} Your App
+          © {new Date().getFullYear()} E-Commerce
         </p>
       </div>
     </div>
