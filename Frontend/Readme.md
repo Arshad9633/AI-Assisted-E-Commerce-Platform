@@ -75,7 +75,8 @@ If you are developing a production application, we recommend using TypeScript wi
 ## 🖼️ Preview
 
 ### Sign Up Page
-![Sign Up](docs/screenshots/signup.png)
+![Sign Up](docs/screenshots/SignUp.png)
 
 ### Sign In Page
-![Sign In](docs/screenshots/signin.png)
+![Sign Ip](docs/screenshots/SignIp.png)
+
