@@ -4,6 +4,8 @@ import SignIn from './pages/SignIn';
 import SignUp from './pages/SignUp';
 import Dashboard from './pages/Dashboard';
 import { getUser } from './lib/auth';
+import AdminPanel from './pages/AdminPanel';
+import RoleProtectedRoute from './components/RoleProtectedRoute';
 
 function PrivateRoute({ children }) {
   const user = getUser();
@@ -24,6 +26,14 @@ export default function App() {
             <PrivateRoute>
               <Dashboard />
             </PrivateRoute>
+          }
+        />
+        <Route
+          path= "/home/admin"
+          element={
+            <RoleProtectedRoute allowedRoles={['ADMIN']}>
+              <AdminPanel />
+            </RoleProtectedRoute>
           }
         />
         <Route path="*" element={<Navigate to="/signin" replace />} />

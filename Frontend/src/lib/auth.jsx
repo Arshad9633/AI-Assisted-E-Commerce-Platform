@@ -1,6 +1,9 @@
 export const getUser = () => {
-  try { return JSON.parse(localStorage.getItem('auth_user') || 'null'); }
-  catch { return null; }
+  try { 
+    return JSON.parse(localStorage.getItem('auth_user') || 'null');
+  } catch { 
+    return null; 
+  }
 };
 
 export const setUser = (obj) => {

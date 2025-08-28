@@ -1,4 +1,3 @@
-// src/lib/http.js
 import axios from 'axios';
 
 function normalizeBase(base) {
