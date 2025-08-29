@@ -1,37 +1,34 @@
-import axios from 'axios';
+import axios from "axios";
 
 function normalizeBase(base) {
-  if (!base) return '';
-  // Remove trailing slash for consistency
-  return base.endsWith('/') ? base.slice(0, -1) : base;
+  if (!base) return "";
+  return base.endsWith("/") ? base.slice(0, -1) : base;
 }
 
-// Prefer VITE_API_BASE (proxy-friendly), then VITE_API_BASE_URL, then /api
 const ENV_BASE =
   import.meta.env.VITE_API_BASE ??
   import.meta.env.VITE_API_BASE_URL ??
-  '/api';
+  "/api";
 
 const baseURL = normalizeBase(ENV_BASE);
 
 const http = axios.create({
-  baseURL, // e.g. "/api" or "http://localhost:8000"
-  headers: { 'Content-Type': 'application/json' },
+  baseURL,
+  headers: { "Content-Type": "application/json" },
   withCredentials: false,
   timeout: 15000,
 });
 
+const STORAGE_KEY = "auth_user";
+
 http.interceptors.request.use((config) => {
-  const raw = localStorage.getItem('auth_user');
+  const raw = localStorage.getItem(STORAGE_KEY);
   if (raw) {
     try {
       const { token } = JSON.parse(raw);
       if (token) config.headers.Authorization = `Bearer ${token}`;
     } catch (e) {
-      // Only log in dev
-      if (import.meta.env.DEV) {
-        console.warn('auth_user parse failed:', e);
-      }
+      if (import.meta.env.DEV) console.warn("auth_user parse failed:", e);
     }
   }
   return config;
@@ -40,12 +37,14 @@ http.interceptors.request.use((config) => {
 http.interceptors.response.use(
   (res) => res,
   (err) => {
-    // Normalize network errors so the UI can show a friendly message
-    if (err.message === 'Network Error' || err.code === 'ECONNABORTED') {
+    if (err.message === "Network Error" || err.code === "ECONNABORTED") {
       err.response = err.response ?? {
         status: 0,
-        data: { message: 'Network error. Please try again.' },
+        data: { message: "Network error. Please try again." },
       };
+    }
+    if (err?.response?.status === 401) {
+      localStorage.removeItem(STORAGE_KEY);
     }
     return Promise.reject(err);
   }
