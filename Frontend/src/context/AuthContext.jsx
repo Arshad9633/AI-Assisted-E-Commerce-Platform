@@ -33,12 +33,13 @@ export function AuthProvider({ children }) {
 
   const login = (payload) => {
     const token = payload?.token ?? payload?.accessToken ?? null;
+    const name = payload?.name ?? payload.user?.name ?? null;
     const email = payload?.email ?? payload?.user?.email ?? null;
     const normalizedRoles = Array.from(
       new Set((payload?.roles ?? payload?.user?.roles ?? []).map((r) => String(r).toUpperCase()))
     );
     if (!token) throw new Error("No token in response");
-    const next = { token, email, roles: normalizedRoles };
+    const next = { token, name, email, roles: normalizedRoles };
     setAuth(next);
     return next;
   };
@@ -51,6 +52,7 @@ export function AuthProvider({ children }) {
   const value = useMemo(
     () => ({
       token: auth?.token ?? null,
+      name: auth?.name ?? null,
       email: auth?.email ?? null,
       roles,
       isAuthenticated,

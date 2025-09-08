@@ -11,6 +11,7 @@ import java.util.Set;
 @NoArgsConstructor
 public class JwtResponse {
     private String token;
+    private String name;
     private String email;
     private Set<String> roles;
 }

@@ -74,7 +74,7 @@ public class AuthController {
                 .map(r -> r.getName().name())
                 .collect(java.util.stream.Collectors.toSet());
 
-        return ResponseEntity.ok(new JwtResponse(token, user.getEmail(), roles));
+        return ResponseEntity.ok(new JwtResponse(token, user.getName(), user.getEmail(), roles));
     }
 
 

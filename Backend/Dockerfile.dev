@@ -1,0 +1,12 @@
+FROM maven:3.9-eclipse-temurin-21
+WORKDIR /app
+
+# Cache dependencies
+COPY commerce-api/commerce-api/pom.xml ./pom.xml
+RUN mvn -B -q -DskipTests dependency:go-offline
+
+# Copy sources (will be overridden by bind mount in compose)
+COPY commerce-api/commerce-api/src ./src
+
+EXPOSE 8000
+CMD ["sh", "-c", "mvn -q -DskipTests spring-boot:run -Dspring-boot.run.profiles=${SPRING_PROFILES_ACTIVE:-dev}"]

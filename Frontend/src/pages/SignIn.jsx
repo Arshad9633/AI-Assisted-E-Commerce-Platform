@@ -1,14 +1,16 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import toast from "react-hot-toast";
 import http from "../lib/http";
-import { setUser } from "../lib/auth";
 import AuthLayout from "../components/AuthLayout";
 import Input from "../components/Input";
 import Button from "../components/Button";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
+import { ADMIN_BASE, USER_BASE } from "../config/routes";
+import Navbar from "../components/Navbar";
 
 const schema = z.object({
   email: z.string().email("Enter a valid email"),
@@ -16,22 +18,20 @@ const schema = z.object({
   remember: z.boolean().optional(),
 });
 
-function normalizeRoles(raw) {
-  if (!raw) return [];
-  const list = Array.isArray(raw) ? raw : String(raw).split(",");
-  return list.map(r => String(r).trim().toUpperCase()).filter(Boolean);
-}
-
 export default function SignIn() {
+  const { isAuthenticated, login, roles } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [loading, setLoading] = useState(false);
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-  } = useForm({
+  // If you're already signed in, don’t show SignIn; send to the right home.
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    if (roles?.includes("ADMIN")) navigate(ADMIN_BASE, { replace: true });
+    else navigate(USER_BASE, { replace: true });
+  }, [isAuthenticated, roles, navigate]);
+
+  const { register, handleSubmit, formState: { errors } } = useForm({
     resolver: zodResolver(schema),
     defaultValues: { email: "", password: "", remember: true },
   });
@@ -40,37 +40,32 @@ export default function SignIn() {
     try {
       setLoading(true);
 
-      const res = await http.post("/api/auth/signin", {
+      // Expecting backend to return { token, email, roles } (any shape is fine; login() normalizes)
+      const { data } = await http.post("/api/auth/signin", {
         email: values.email,
         password: values.password,
       });
 
-      const token = res.data?.token;
-      const email = res.data?.email ?? values.email;
-      const roles = normalizeRoles(res.data?.roles);
+      // Save to context (writes to localStorage and updates state)
+      const session = login(data);
 
-      if (!token) throw new Error("No token found in response");
-
-      // Persist user
-      setUser({ token, email, roles });
-
-      // Immediately set default auth header for future requests this session
-      http.defaults.headers.common.Authorization = `Bearer ${token}`;
+      // Optional: set axios default header for the current tab session
+      if (session?.token) {
+        http.defaults.headers.common.Authorization = `Bearer ${session.token}`;
+      }
 
       toast.success("Signed in successfully!");
 
-      // If we were redirected here from a protected route, go back there
+      // Respect "return to" if it exists and is safe for the user’s role
       const from = location.state?.from?.pathname;
-      if (from) {
-        navigate(from, { replace: true });
-        return;
-      }
+      const isAdmin = session.roles?.includes("ADMIN");
 
-      // Otherwise route by role
-      if (roles.includes("ADMIN")) {
-        navigate("/home/admin", { replace: true });
+      if (isAdmin) {
+        navigate(ADMIN_BASE, { replace: true });
       } else {
-        navigate("/dashboard", { replace: true });
+        const fallback =
+          from && !from.startsWith(ADMIN_BASE) ? from : USER_BASE;
+        navigate(fallback, { replace: true });
       }
     } catch (err) {
       const status = err?.response?.status;
@@ -86,7 +81,8 @@ export default function SignIn() {
   };
 
   return (
-    <AuthLayout title="Welcome back" subtitle="Sign in to your account">
+    <AuthLayout title="Welcome Back" subtitle="Sign in to your account">
+      <Navbar />
       <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4">
         <Input
           label="Email"

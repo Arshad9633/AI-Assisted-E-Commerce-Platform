@@ -10,3 +10,8 @@ target/
 .idea/
 .vscode/
 *.iml
+
+# Local-only docker config
+docker-compose.dev.yml
+
+.Dockerfile.Dev

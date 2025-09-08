@@ -8,6 +8,7 @@ import AuthLayout from '../components/AuthLayout';
 import Input from '../components/Input';
 import Button from '../components/Button';
 import { Link, useNavigate } from 'react-router-dom';
+import Navbar from "../components/Navbar";
 
 const pwd = z.string()
   .min(8, 'Min 8 characters')
@@ -58,6 +59,7 @@ export default function SignUp() {
       title="Create your account"
       subtitle="It takes less than a minute"
     >
+      <Navbar />
       <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4">
         <Input
           label="Full name"
