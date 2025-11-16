@@ -45,9 +45,16 @@ export function AuthProvider({ children }) {
   };
 
   const logout = () => {
-    setAuth(null);
-    navigate("/signin", { replace: true });
-  };
+  // 1. Clear localStorage first
+  localStorage.removeItem(AUTH_STORAGE_KEY);
+
+  // 2. Clear React state
+  setAuth(null);
+
+  // 3. Navigate
+  navigate("/signin", { replace: true });
+};
+
 
   const value = useMemo(
     () => ({

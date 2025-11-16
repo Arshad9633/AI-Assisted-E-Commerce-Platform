@@ -40,6 +40,9 @@ public class SecurityConfig {
                         // Auth routes open
                         .requestMatchers("/api/auth/**").permitAll()
 
+                        // Public product endpoints (storefront)
+                        .requestMatchers(HttpMethod.GET, "/api/products/**").permitAll()
+
                         // Allow Spring error page (avoid 403 when an exception forwards to /error)
                         .requestMatchers("/error", "/error/**").permitAll()
 

@@ -28,7 +28,7 @@ export default function SignIn() {
   useEffect(() => {
     if (!isAuthenticated) return;
     if (roles?.includes("ADMIN")) navigate(ADMIN_BASE, { replace: true });
-    else navigate(USER_BASE, { replace: true });
+    else navigate("/", { replace: true });
   }, [isAuthenticated, roles, navigate]);
 
   const { register, handleSubmit, formState: { errors } } = useForm({
@@ -64,7 +64,7 @@ export default function SignIn() {
         navigate(ADMIN_BASE, { replace: true });
       } else {
         const fallback =
-          from && !from.startsWith(ADMIN_BASE) ? from : USER_BASE;
+          from && !from.startsWith(ADMIN_BASE) ? from : "/";
         navigate(fallback, { replace: true });
       }
     } catch (err) {

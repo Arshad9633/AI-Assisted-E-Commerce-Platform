@@ -10,9 +10,10 @@ export default function RoleProtectedRoute({ allowedRoles = [], children }) {
   }
 
   if (!hasAnyRole(allowedRoles)) {
-    return <Navigate to="/dashboard" replace />;
+    // Non-admin users should be sent back home
+    return <Navigate to="/" replace />;
   }
 
-  // Support either children or nested routes
+  // Allow nested routes
   return children ?? <Outlet />;
 }
