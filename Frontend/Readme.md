@@ -1,82 +1,153 @@
-# React + Vite
+# E-Commerce Application – Full Stack (React + Vite + Spring Boot + MongoDB)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+This project is a full‑stack e-commerce application built using **React + Vite** on the frontend and a **Spring Boot + MongoDB** backend. It supports secure JWT-based authentication, user roles, an admin dashboard, and a fully responsive UI using **Tailwind CSS v4**. The application includes a dynamic navigation bar that updates based on login status, showing the customer name, cart, logout button, and an Admin Panel link for administrators.
 
-Currently, two official plugins are available:
-
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
-
-
-## 🚀 Setup
-
-1. Install dependencies
-   ```bash
-   npm install
-   npm i -D tailwindcss @tailwindcss/vite @tailwindcss/forms
-   ```
-
-2. Configure **Vite**
-   ```js
-   // vite.config.js
-   import { defineConfig } from 'vite'
-   import react from '@vitejs/plugin-react'
-   import tailwind from '@tailwindcss/vite'
-
-   export default defineConfig({
-     plugins: [react(), tailwind()],
-   })
-   ```
-
-3. Configure **Tailwind in CSS**
-   ```css
-   /* src/index.css */
-   @import "tailwindcss";
-   @plugin "@tailwindcss/forms";
-   ```
-
-4. Import CSS in entry
-   ```jsx
-   // src/main.jsx
-   import './index.css'
-   ```
+Users can browse products on the public home page, sign up, sign in, and interact with authenticated features. Admins receive a dedicated protected route to manage backend data.
 
 ---
 
-## 📄 Pages
+## 🚀 Features Overview
 
-### 🔑 Sign In
-- Email + password input  
-- Client-side validation with **react-hook-form + zod**  
-- "Remember me" option  
-- Redirects to Dashboard after login  
+### 🏠 Public Home
+The public homepage is accessible to both guests and authenticated users.  
+Logged-in users see:
+- Their name in uppercase gradient text  
+- A Cart link  
+- A Logout button  
+- Admin Panel (if they have ADMIN role)
 
-### 📝 Sign Up
-- Name, email, password, confirm password  
-- Password rules (uppercase, lowercase, number, min 8 chars)  
-- Validates "passwords match"  
-- Redirects to Sign In after account creation  
+Guests see:
+- Sign In  
+- Sign Up  
 
----
-
-## 📦 Features
-- Responsive design with Tailwind v4  
-- Accessible inputs and buttons  
-- Token storage in `localStorage`  
-- Reusable `Input` and `Button` components  
-- Dashboard with protected route example  
+The UI includes a hero slider, featured products, and fully responsive design.
 
 ---
 
-## 🖼️ Preview
+## 🔐 Authentication & Authorization
 
-### Sign Up and Sign InPage
-![Sign Up](docs/screenshots/SignUp.png)
+### Sign In
+- Email and password with zod validation  
+- Stores JWT in localStorage  
+- Redirects:
+  - **ADMIN → `/home/admin`**
+  - **CUSTOMER → `/`**  
 
-### Sign In Page
-![Sign Ip](docs/screenshots/SignIn.png)
+### Sign Up
+- Name, email, password, confirm-password  
+- Strong validation rules  
+- Redirects to Sign In after successful registration  
+
+### Auth Flow Features
+- Persistent login via localStorage (`AuthContext`)  
+- Auto-inject JWT into API requests  
+- Secure logout clears localStorage and cookies  
+- Route Guards:
+  - **GuestRoute** → blocks authenticated users from visiting Sign In / Sign Up  
+  - **PrivateRoute** → protects authenticated routes  
+  - **RoleProtectedRoute** → ADMIN-only access  
+
+---
+
+## 🛠️ Admin Panel
+The admin dashboard is fully protected and accessible only to ADMIN role users.  
+Routes include:
+- `/home/admin` (Admin Home)
+- `/home/admin/users` (User Management)
+
+Admin views include nested routing via `RoleProtectedRoute`.
+
+---
+
+## 🎨 UI Styling
+- Built with **Tailwind CSS v4**  
+- Uses `@tailwindcss/forms` plugin  
+- Gradient text & button styling  
+- Responsive navigation bar  
+- Support for both desktop and mobile menus  
+
+---
+
+## 🧩 Technology Stack
+### Frontend
+- React + Vite  
+- Tailwind CSS  
+- react-hook-form + zod  
+- lucide-react icons  
+- React Router v6  
+
+### Backend
+- Spring Boot  
+- MongoDB  
+- JWT Security  
+
+### Deployment / DevOps
+- Docker Compose (frontend, backend, MongoDB)  
+- Hot reloading (frontend + backend)  
+
+---
+
+## 🛳️ Docker Setup
+
+Start all containers:
+```bash
+docker-compose up --build
+```
+
+Containers:
+- **frontend** → port 3000  
+- **backend** → port 8000  
+- **mongodb** → port 27017  
+
+Hot reload works automatically with volume mounts.
+
+---
+
+## 📦 Installation (Frontend)
+1. Install dependencies  
+```bash
+npm install
+npm i -D tailwindcss @tailwindcss/vite @tailwindcss/forms
+```
+
+2. Vite configuration  
+```js
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+import tailwind from '@tailwindcss/vite'
+
+export default defineConfig({
+  plugins: [react(), tailwind()],
+})
+```
+
+3. Tailwind  
+```css
+@import "tailwindcss";
+@plugin "@tailwindcss/forms";
+```
+
+4. Import CSS in entry  
+```jsx
+import './index.css'
+```
+
+
+---
+
+## 📁 Project Status
+The application supports:
+- User authentication  
+- Admin role management  
+- Product display  
+- Dynamic navbar  
+- Secure routing  
+- Fully Dockerized development setup  
+
+More features like Cart logic, Order flow, and Profile pages can be added anytime.
+
+---
+
+## 📄 License
+This project is free to use for learning and development.
 
