@@ -1,30 +1,60 @@
-import { createContext, useContext, useState, useCallback } from "react";
-// import http from "../lib/http"; // later
+import { createContext, useContext, useEffect, useState } from "react";
 
-const CartCtx = createContext(null);
-export const useCart = () => useContext(CartCtx);
+const CartContext = createContext(null);
 
-export function CartProvider({ children }) {
-  const [cart, setCart] = useState({ items: [] });
+export const CartProvider = ({ children }) => {
+  const [cartItems, setCartItems] = useState(() =>{
+    try{
+      return JSON.parse(localStorage.getItem("cartItems")) || [];
+    } catch{
+      return [];
+    }
+  });
 
-  const loadCart = useCallback(async (userId) => {
-    // Later: const { data } = await http.get(`/api/cart`);
-    // Server knows user from the JWT; no need to pass userId explicitly.
-    // For now, fake it:
-    setCart({ items: [] });
-  }, []);
+  useEffect(() => {
+    localStorage.setItem("cartItems", JSON.stringify(cartItems));
+  }, [cartItems]);
 
-  const addToCart = useCallback(async (userId, productId) => {
-    // Later: await http.post(`/api/cart/items`, { productId, qty: 1 })
-    setCart(prev => ({
-      ...prev,
-      items: [...prev.items, { productId, title: `Product #${productId}`, qty: 1 }],
-    }));
-  }, []);
+  const addToCart = (product) => {
+    setCartItems((prevItems) => {
+      const existingItem = prevItems.find((item) => item.id === product.id);
+      if (existingItem) { 
+        return prevItems.map((item) =>
+          item.id === product.id
+            ? { ...item, quantity: item.quantity + 1 }
+            : item
+        );
+      } else {
+        return [...prevItems, { ...product, quantity: 1 }];
+      } 
+    });
+  };
 
+  const removeFromCart = (productId) => {
+    setCartItems((prevItems) =>
+      prevItems.filter((item) => item.id !== productId)
+    );
+  };    
+  const clearCart = () => {
+    setCartItems([]);
+  };
+
+  const updateQuantity = (productId, quantity) => {
+    setCartItems((prevItems) =>
+      prevItems.map((item) =>
+        item.id === productId ? { ...item, quantity } : item
+      )
+    );
+  };    
   return (
-    <CartCtx.Provider value={{ cart, loadCart, addToCart }}>
+    <CartContext.Provider
+      value={{ cartItems, addToCart, removeFromCart, clearCart, updateQuantity }}   
+    >
       {children}
-    </CartCtx.Provider>
+    </CartContext.Provider>
   );
-}
+};
+
+export const useCart = () => {
+  return useContext(CartContext);
+};

@@ -4,13 +4,15 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import toast from "react-hot-toast";
+
 import http from "../lib/http";
 import AuthLayout from "../components/AuthLayout";
 import Input from "../components/Input";
 import Button from "../components/Button";
-import { useAuth } from "../context/AuthContext";
-import { ADMIN_BASE, USER_BASE } from "../config/routes";
 import Navbar from "../components/Navbar";
+
+import { useAuth } from "../context/AuthContext";
+import { ADMIN_BASE } from "../config/routes";
 
 const schema = z.object({
   email: z.string().email("Enter a valid email"),
@@ -24,56 +26,69 @@ export default function SignIn() {
   const location = useLocation();
   const [loading, setLoading] = useState(false);
 
-  // If you're already signed in, don’t show SignIn; send to the right home.
+  // If already authenticated → redirect
   useEffect(() => {
     if (!isAuthenticated) return;
-    if (roles?.includes("ADMIN")) navigate(ADMIN_BASE, { replace: true });
-    else navigate("/", { replace: true });
+
+    if (roles?.includes("ADMIN")) {
+      navigate(ADMIN_BASE, { replace: true });
+    } else {
+      navigate("/", { replace: true });
+    }
   }, [isAuthenticated, roles, navigate]);
 
-  const { register, handleSubmit, formState: { errors } } = useForm({
+  const {
+    register,
+    handleSubmit,
+    formState: { errors }
+  } = useForm({
     resolver: zodResolver(schema),
-    defaultValues: { email: "", password: "", remember: true },
+    defaultValues: {
+      email: "",
+      password: "",
+      remember: true
+    },
   });
 
   const onSubmit = async (values) => {
     try {
       setLoading(true);
 
-      // Expecting backend to return { token, email, roles } (any shape is fine; login() normalizes)
+      // Backend request
       const { data } = await http.post("/api/auth/signin", {
         email: values.email,
         password: values.password,
       });
 
-      // Save to context (writes to localStorage and updates state)
+      // Store session
       const session = login(data);
 
-      // Optional: set axios default header for the current tab session
       if (session?.token) {
         http.defaults.headers.common.Authorization = `Bearer ${session.token}`;
       }
 
       toast.success("Signed in successfully!");
 
-      // Respect "return to" if it exists and is safe for the user’s role
       const from = location.state?.from?.pathname;
       const isAdmin = session.roles?.includes("ADMIN");
 
       if (isAdmin) {
         navigate(ADMIN_BASE, { replace: true });
       } else {
-        const fallback =
-          from && !from.startsWith(ADMIN_BASE) ? from : "/";
-        navigate(fallback, { replace: true });
+        navigate(from && !from.startsWith(ADMIN_BASE) ? from : "/", {
+          replace: true,
+        });
       }
     } catch (err) {
       const status = err?.response?.status;
       const msg =
         err?.response?.data?.message ||
-        (status === 401 ? "Invalid email or password" :
-         status === 502 ? "Backend not reachable. Try again in a moment." :
-         err.message || "Sign in failed");
+        (status === 401
+          ? "Invalid email or password"
+          : status === 502
+          ? "Backend unavailable. Try again later."
+          : err.message || "Sign in failed");
+
       toast.error(msg);
     } finally {
       setLoading(false);
@@ -83,6 +98,7 @@ export default function SignIn() {
   return (
     <AuthLayout title="Welcome Back" subtitle="Sign in to your account">
       <Navbar />
+
       <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4">
         <Input
           label="Email"
@@ -109,6 +125,7 @@ export default function SignIn() {
             />
             Remember me
           </label>
+
           <Link to="#" className="text-sm text-gray-900 hover:underline">
             Forgot password?
           </Link>
@@ -120,7 +137,10 @@ export default function SignIn() {
 
         <p className="text-center text-sm text-gray-600">
           No account?{" "}
-          <Link to="/signup" className="font-medium text-gray-900 hover:underline">
+          <Link
+            to="/signup"
+            className="font-medium text-gray-900 hover:underline"
+          >
             Create one
           </Link>
         </p>
