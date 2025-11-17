@@ -1,48 +1,123 @@
 package com.shop.commerce_api.controller;
 
+import com.shop.commerce_api.dto.CategoryCreateRequest;
+import com.shop.commerce_api.dto.CategoryResponse;
+import com.shop.commerce_api.dto.ProductImageDto;
+import com.shop.commerce_api.dto.ProductResponse;
+import com.shop.commerce_api.entity.Category;
 import com.shop.commerce_api.entity.Product;
+import com.shop.commerce_api.repository.CategoryRepository;
 import com.shop.commerce_api.repository.ProductRepository;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.net.URI;
 import java.time.Instant;
+import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
 
 @RestController
-@RequestMapping("/api/admin/products")
+@RequestMapping("/api/admin/catalog")
+@PreAuthorize("hasRole('ADMIN')")
 public class ProductAdminController {
 
-    private final ProductRepository productRepo;
+    private final CategoryRepository categoryRepository;
+    private final ProductRepository productRepository;
 
-    public ProductAdminController(ProductRepository productRepo) {
-        this.productRepo = productRepo;
+    public ProductAdminController(CategoryRepository categoryRepository,
+                                  ProductRepository productRepository) {
+        this.categoryRepository = categoryRepository;
+        this.productRepository = productRepository;
     }
 
-    @PostMapping
-    @PreAuthorize("hasRole('ADMIN')")
-    public Product create(@RequestBody @Valid Product p) {
-        validateProduct(p, true);
-        p.setCreatedAt(Instant.now());
-        p.setUpdatedAt(Instant.now());
-        return productRepo.save(p);
+    /* ============================
+          CATEGORY MANAGEMENT
+       ============================ */
+
+    @PostMapping("/categories")
+    public ResponseEntity<CategoryResponse> createCategory(
+            @RequestBody @Valid CategoryCreateRequest request
+    ) {
+        if (categoryRepository.existsByNameIgnoreCase(request.getName())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Category already exists");
+        }
+
+        Category saved = categoryRepository.save(
+                new Category(request.getName(), request.getGender())
+        );
+
+        return ResponseEntity.created(
+                URI.create("/api/admin/catalog/categories/" + saved.getId())
+        ).body(new CategoryResponse(saved.getId(), saved.getName(), saved.getGender()));
     }
 
-    @PutMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
-    public Product update(@PathVariable String id, @RequestBody @Valid Product p) {
-        Product existing = productRepo.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Product not found"));
+    @GetMapping("/categories")
+    public List<CategoryResponse> listCategories() {
+        return categoryRepository.findAll()
+                .stream()
+                .map(c -> new CategoryResponse(c.getId(), c.getName(), c.getGender()))
+                .collect(Collectors.toList());
+    }
 
-        // If slug changes, ensure uniqueness
-        if (!existing.getSlug().equals(p.getSlug()) && productRepo.existsBySlug(p.getSlug())) {
+    /* ============================
+          PRODUCT MANAGEMENT
+       ============================ */
+
+    @PostMapping("/products")
+    public ResponseEntity<ProductResponse> createProduct(@RequestBody @Valid Product p) {
+
+        // category is stored as STRING id
+        String categoryId = p.getCategory();
+        if (categoryId == null || !categoryRepository.existsById(categoryId)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Category not found");
+        }
+
+        if (productRepository.existsBySlug(p.getSlug())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Slug already exists");
         }
 
-        // copy allowed fields
-        existing.setTitle(p.getTitle());
-        existing.setSlug(p.getSlug());
+        validateProduct(p, true);
+
+        Instant now = Instant.now();
+        p.setCreatedAt(now);
+        p.setUpdatedAt(now);
+
+        Product saved = productRepository.save(p);
+
+        return ResponseEntity.created(
+                URI.create("/api/admin/catalog/products/" + saved.getId())
+        ).body(toProductResponse(saved));
+    }
+
+    @PutMapping("/products/{id}")
+    public ProductResponse updateProduct(
+            @PathVariable String id,
+            @RequestBody @Valid Product p
+    ) {
+        Product existing = productRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Product not found"));
+
+        // slug uniqueness
+        if (p.getSlug() != null &&
+                !existing.getSlug().equals(p.getSlug()) &&
+                productRepository.existsBySlug(p.getSlug())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Slug already exists");
+        }
+
+        // category validation (String ID)
+        if (p.getCategory() != null &&
+                !categoryRepository.existsById(p.getCategory())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Category not found");
+        }
+
+        // update allowed fields
+        if (p.getTitle() != null) existing.setTitle(p.getTitle());
+        if (p.getSlug() != null) existing.setSlug(p.getSlug());
         existing.setDescription(p.getDescription());
         existing.setPrice(p.getPrice());
         existing.setDiscountPrice(p.getDiscountPrice());
@@ -55,33 +130,85 @@ public class ProductAdminController {
         existing.setUpdatedAt(Instant.now());
 
         validateProduct(existing, false);
-        return productRepo.save(existing);
+
+        return toProductResponse(productRepository.save(existing));
     }
 
-    @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @DeleteMapping("/products/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void delete(@PathVariable String id) {
-        if (!productRepo.existsById(id)) {
+    public void deleteProduct(@PathVariable String id) {
+        if (!productRepository.existsById(id)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Product not found");
         }
-        productRepo.deleteById(id);
+        productRepository.deleteById(id);
+    }
+
+    @GetMapping("/products")
+    public List<ProductResponse> listProducts() {
+        return productRepository.findAll()
+                .stream()
+                .map(this::toProductResponse)
+                .collect(Collectors.toList());
+    }
+
+    /* ============================
+            MAPPING HELPERS
+       ============================ */
+
+    private ProductResponse toProductResponse(Product p) {
+
+        Optional<Category> categoryOpt = Optional.empty();
+        if (p.getCategory() != null) {
+            categoryOpt = categoryRepository.findById(p.getCategory());
+        }
+
+        return ProductResponse.builder()
+                .id(p.getId())
+                .title(p.getTitle())
+                .slug(p.getSlug())
+                .description(p.getDescription())
+                .price(p.getPrice())
+                .discountPrice(p.getDiscountPrice())
+                .currency(p.getCurrency())
+                .stock(p.getStock())
+                .status(p.getStatus())
+                .images(p.getImages() == null ? List.of()
+                        : p.getImages().stream()
+                        .map(img -> new ProductImageDto(img.getUrl(), img.getAlt()))
+                        .collect(Collectors.toList()))
+                .tags(p.getTags())
+                .createdAt(p.getCreatedAt())
+                .updatedAt(p.getUpdatedAt())
+                .categoryId(categoryOpt.map(Category::getId).orElse(null))
+                .categoryName(categoryOpt.map(Category::getName).orElse(null))
+                .categoryGender(categoryOpt.map(Category::getGender).orElse(null))
+                .build();
     }
 
     private void validateProduct(Product p, boolean creating) {
-        if (p.getDiscountPrice() != null && p.getPrice() != null &&
+
+        if (creating && (p.getSlug() == null || p.getSlug().isBlank())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Slug is required");
+        }
+
+        if (p.getPrice() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Price is required");
+        }
+
+        if (p.getDiscountPrice() != null &&
                 p.getDiscountPrice().compareTo(p.getPrice()) > 0) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "discountPrice cannot be greater than price");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Discount price cannot exceed price");
         }
-        if (creating && productRepo.existsBySlug(p.getSlug())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Slug already exists");
-        }
+
         if (p.getStock() != null && p.getStock() < 0) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Stock cannot be negative");
         }
+
         if (p.getStatus() == null ||
-                !(p.getStatus().equals("DRAFT") || p.getStatus().equals("PUBLISHED") || p.getStatus().equals("ARCHIVED"))) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid status");
+                !(p.getStatus().equals("DRAFT") ||
+                        p.getStatus().equals("PUBLISHED") ||
+                        p.getStatus().equals("ARCHIVED"))) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid product status");
         }
     }
 }

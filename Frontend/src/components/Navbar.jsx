@@ -1,14 +1,28 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { ShoppingCart } from "lucide-react";
+import {
+  ShoppingCart,
+  ChevronDown,
+  Shirt,
+  Handbag,
+  Watch,
+  Sparkles,
+  Footprints,
+  Dumbbell,
+} from "lucide-react";
 
 export default function Navbar() {
-  const { name, email, roles, isAuthenticated, logout } = useAuth();
+  const { name, email, isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
 
   const [scrolled, setScrolled] = useState(false);
-  const [open, setOpen] = useState(false);
+  const [openMobile, setOpenMobile] = useState(false);
+  const [openMen, setOpenMen] = useState(false);
+  const [openWomen, setOpenWomen] = useState(false);
+
+  const displayName =
+    name?.toUpperCase() || (email ? email.split("@")[0].toUpperCase() : "");
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 6);
@@ -22,84 +36,205 @@ export default function Navbar() {
     navigate("/signin");
   };
 
-  const displayName = (name || (email ? email.split("@")[0] : "")).toUpperCase();
-
   const navClass =
     "fixed inset-x-0 top-0 z-50 transition-all " +
-    (scrolled ? "bg-white/80 backdrop-blur-md shadow-sm" : "bg-white/10 backdrop-blur-xl");
+    (scrolled
+      ? "bg-white/90 backdrop-blur-lg shadow-md"
+      : "bg-white/10 backdrop-blur-xl");
 
-  const NavLink = ({ to, children, className = "" }) => (
+  const ProductLink = ({ to, Icon, label, closeAll }) => (
     <Link
       to={to}
-      className={`text-sm font-medium text-gray-700 hover:text-indigo-600 ${className}`}
-      onClick={() => setOpen(false)}
+      className="flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-white/90 transition-all cursor-pointer group"
+      onClick={() => {
+        closeAll?.();
+      }}
     >
-      {children}
+      <Icon className="h-5 w-5 text-gray-600 group-hover:text-indigo-600" />
+      <span className="text-sm font-medium text-gray-800 group-hover:text-indigo-700">
+        {label}
+      </span>
     </Link>
   );
+
+  const closeAllMenus = () => {
+    setOpenMen(false);
+    setOpenWomen(false);
+    setOpenMobile(false);
+  };
 
   return (
     <header className={navClass}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* NAVBAR */}
         <nav className="h-16 flex items-center justify-between">
-
           {/* Logo */}
           <Link
             to="/"
-            className="text-xl font-extrabold tracking-tight bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent"
+            className="text-xl font-extrabold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent"
           >
             E-Commerce
           </Link>
 
-          {/* Desktop Menu */}
-          <div className="hidden md:flex items-center gap-6">
+          {/* DESKTOP MENU */}
+          <div className="hidden md:flex items-center gap-8">
+            {/* MEN MEGAMENU (click to open) */}
+            <div className="relative">
+              <button
+                className="flex items-center gap-1 text-sm font-medium text-gray-800 hover:text-indigo-600"
+                onClick={() => {
+                  setOpenMen((v) => !v);
+                  setOpenWomen(false);
+                }}
+              >
+                Men <ChevronDown className="h-4 w-4" />
+              </button>
 
-            {/* Guest */}
-            {!isAuthenticated && (
+              {openMen && (
+                <div className="absolute top-full mt-3 w-[500px] p-4 rounded-2xl bg-white/70 backdrop-blur-2xl shadow-xl border border-white/40 animate-mega z-[999]">
+                  <h3 className="px-2 pb-2 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                    Men&apos;s Categories
+                  </h3>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <ProductLink
+                      to="/products/men/shoes"
+                      Icon={Footprints}
+                      label="Shoes"
+                      closeAll={closeAllMenus}
+                    />
+                    <ProductLink
+                      to="/products/men/clothing"
+                      Icon={Shirt}
+                      label="Clothing"
+                      closeAll={closeAllMenus}
+                    />
+                    <ProductLink
+                      to="/products/men/bags"
+                      Icon={Handbag}
+                      label="Bags"
+                      closeAll={closeAllMenus}
+                    />
+                    <ProductLink
+                      to="/products/men/accessories"
+                      Icon={Sparkles}
+                      label="Accessories"
+                      closeAll={closeAllMenus}
+                    />
+                    <ProductLink
+                      to="/products/men/watches"
+                      Icon={Watch}
+                      label="Watches"
+                      closeAll={closeAllMenus}
+                    />
+                    <ProductLink
+                      to="/products/men/sportswear"
+                      Icon={Dumbbell}
+                      label="Sportswear"
+                      closeAll={closeAllMenus}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* WOMEN MEGAMENU (click to open) */}
+            <div className="relative">
+              <button
+                className="flex items-center gap-1 text-sm font-medium text-gray-800 hover:text-indigo-600"
+                onClick={() => {
+                  setOpenWomen((v) => !v);
+                  setOpenMen(false);
+                }}
+              >
+                Women <ChevronDown className="h-4 w-4" />
+              </button>
+
+              {openWomen && (
+                <div className="absolute top-full mt-3 w-[500px] p-4 rounded-2xl bg-white/70 backdrop-blur-2xl shadow-xl border border-white/40 animate-mega z-[999]">
+                  <h3 className="px-2 pb-2 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                    Women&apos;s Categories
+                  </h3>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <ProductLink
+                      to="/products/women/shoes"
+                      Icon={Footprints}
+                      label="Shoes"
+                      closeAll={closeAllMenus}
+                    />
+                    <ProductLink
+                      to="/products/women/clothing"
+                      Icon={Shirt}
+                      label="Clothing"
+                      closeAll={closeAllMenus}
+                    />
+                    <ProductLink
+                      to="/products/women/bags"
+                      Icon={Handbag}
+                      label="Bags"
+                      closeAll={closeAllMenus}
+                    />
+                    <ProductLink
+                      to="/products/women/accessories"
+                      Icon={Sparkles}
+                      label="Accessories"
+                      closeAll={closeAllMenus}
+                    />
+                    <ProductLink
+                      to="/products/women/watches"
+                      Icon={Watch}
+                      label="Watches"
+                      closeAll={closeAllMenus}
+                    />
+                    <ProductLink
+                      to="/products/women/beauty"
+                      Icon={Sparkles}
+                      label="Beauty"
+                      closeAll={closeAllMenus}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Cart */}
+            <Link
+              to="/cart"
+              className="flex items-center gap-1 text-gray-800 hover:text-indigo-600"
+            >
+              <ShoppingCart className="h-5 w-5" />
+              Cart
+            </Link>
+
+            {/* Auth Buttons */}
+            {!isAuthenticated ? (
               <>
-                <NavLink to="/signin">Sign In</NavLink>
-
+                <Link
+                  to="/signin"
+                  className="text-sm font-medium hover:text-indigo-600"
+                >
+                  Sign In
+                </Link>
                 <Link
                   to="/signup"
-                  className="inline-flex items-center rounded-full px-4 py-2 text-sm font-semibold text-white 
-                             bg-indigo-600 hover:bg-indigo-700 shadow-sm"
+                  className="px-4 py-2 rounded-full text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 shadow"
                 >
                   Sign Up
                 </Link>
               </>
-            )}
-
-            {/* Logged-in */}
-            {isAuthenticated && (
+            ) : (
               <>
-                {/* Username (gradient) */}
-                <span className="text-sm text-gray-800 flex items-center gap-1">
-                  Hello,
-                  <span
-                    className="font-extrabold bg-gradient-to-r from-indigo-600 to-purple-600 
-                               bg-clip-text text-transparent uppercase tracking-wide"
-                  >
+                <span className="text-sm font-medium text-gray-700">
+                  Hello,{" "}
+                  <span className="font-extrabold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
                     {displayName}
                   </span>
                 </span>
 
-                {/* Cart */}
-                <NavLink to="/cart" className="flex items-center gap-1">
-                  <ShoppingCart className="h-5 w-5 text-gray-700 hover:text-indigo-600" />
-                  Cart
-                </NavLink>
-
-                {/* Admin Panel */}
-                {roles?.includes("ADMIN") && (
-                  <NavLink to="/home/admin">Admin Panel</NavLink>
-                )}
-
-                {/* Logout (gradient button) */}
                 <button
                   onClick={handleLogout}
-                  className="inline-flex items-center rounded-full px-4 py-2 text-sm font-semibold 
-                             bg-gradient-to-r from-red-500 to-pink-500 text-white shadow 
-                             hover:from-red-600 hover:to-pink-600 transition"
+                  className="px-4 py-2 rounded-full text-sm font-semibold bg-gray-100 hover:bg-gray-200"
                 >
                   Logout
                 </button>
@@ -107,72 +242,16 @@ export default function Navbar() {
             )}
           </div>
 
-          {/* Mobile Menu Button */}
+          {/* MOBILE MENU BUTTON */}
           <button
-            className="md:hidden inline-flex items-center justify-center rounded-md p-2 text-gray-700 hover:bg-gray-100"
-            onClick={() => setOpen(!open)}
+            className="md:hidden p-2 rounded-md hover:bg-gray-100 text-gray-700"
+            onClick={() => setOpenMobile((v) => !v)}
           >
             <svg width="24" height="24" fill="none" stroke="currentColor">
-              <path strokeWidth="2" strokeLinecap="round" d="M4 7h16M4 12h16M4 17h16" />
+              <path strokeWidth="2" d="M4 7h16M4 12h16M4 17h16" />
             </svg>
           </button>
         </nav>
-
-        {/* Mobile Menu */}
-        {open && (
-          <div className="md:hidden pb-4">
-            <div className="flex flex-col gap-3 border-t border-gray-200 pt-3">
-
-              {/* Guest */}
-              {!isAuthenticated && (
-                <>
-                  <NavLink to="/signin">Sign In</NavLink>
-
-                  <Link
-                    to="/signup"
-                    className="inline-flex w-fit items-center rounded-full px-4 py-2 text-sm font-semibold 
-                               text-white bg-indigo-600 hover:bg-indigo-700 shadow-sm"
-                  >
-                    Sign Up
-                  </Link>
-                </>
-              )}
-
-              {/* Logged-in */}
-              {isAuthenticated && (
-                <>
-                  {/* Username */}
-                  <span className="text-sm text-gray-800 flex items-center gap-1">
-                    Hello,
-                    <span
-                      className="font-extrabold bg-gradient-to-r from-indigo-600 to-purple-600 
-                                 bg-clip-text text-transparent uppercase tracking-wide"
-                    >
-                      {displayName}
-                    </span>
-                  </span>
-
-                  <NavLink to="/cart" className="flex items-center gap-1">
-                    <ShoppingCart className="h-5 w-5" />
-                    Cart
-                  </NavLink>
-
-                  {roles?.includes("ADMIN") && <NavLink to="/home/admin">Admin Panel</NavLink>}
-
-                  <button
-                    onClick={handleLogout}
-                    className="inline-flex items-center rounded-full px-4 py-2 text-sm font-semibold 
-                               bg-gradient-to-r from-red-500 to-pink-500 text-white shadow 
-                               hover:from-red-600 hover:to-pink-600 transition"
-                  >
-                    Logout
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
-        )}
-
       </div>
     </header>
   );

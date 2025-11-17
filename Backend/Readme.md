@@ -186,6 +186,244 @@ This backend exposes three pages with different access levels:
 
 Use environment variables (via Docker Compose) or `application.properties`.
 
+# 📦 Product Catalog Module (Admin + Public API)
+
+This module provides the complete backend implementation for managing and displaying products in the **AI-Assisted E-Commerce Platform**.
+
+It includes:
+
+- Full Admin Catalog Management (Categories + Products)
+- Public-facing Product Browsing API
+- Search, filtering, pagination, sorting
+- MongoDB-optimized data models
+- Clean DTO-based responses
+
+---
+
+## 🏛️ 1. Admin Catalog Management
+
+Administrators can create and manage categories and products through protected endpoints under:
+
+```
+/api/admin/catalog
+```
+
+Admin access is enforced using:
+
+```
+@PreAuthorize("hasRole('ADMIN')")
+```
+
+---
+
+## ✔ 1.1 Create Category
+
+**POST** `/api/admin/catalog/categories`
+
+Allows admins to create product categories such as:
+
+- Shoes
+- Bags
+- Clothing
+- Beauty
+- Accessories
+- Sportswear
+- Watches
+
+Each category is tied to a **gender**: `MEN` or `WOMEN`.
+
+### Request Body
+
+```json
+{
+  "name": "Shoes",
+  "gender": "MEN"
+}
+```
+
+---
+
+## ✔ 1.2 List Categories
+
+**GET** `/api/admin/catalog/categories`
+
+Returns all available categories along with their:
+
+- ID
+- Name
+- Gender
+
+---
+
+## 🛒 2. Admin Product Management
+
+Admins can manage products under:
+
+```
+/api/admin/catalog/products
+```
+
+---
+
+## ✔ 2.1 Create Product
+
+**POST** `/api/admin/catalog/products`
+
+### Validations
+
+- `price` is required
+- `discountPrice <= price`
+- Category must exist
+- Slug must be unique
+- Stock cannot be negative
+- Status must be one of: `DRAFT`, `PUBLISHED`, `ARCHIVED`
+
+---
+
+## ✔ 2.2 Update Product
+
+**PUT** `/api/admin/catalog/products/{id}`
+
+Editable fields:
+
+- Title
+- Slug
+- Description
+- Price / Discount Price
+- Currency
+- Stock
+- Status
+- Images
+- Category
+- Tags
+
+---
+
+## ✔ 2.3 Delete Product
+
+**DELETE** `/api/admin/catalog/products/{id}`
+
+---
+
+## ✔ 2.4 List All Products
+
+**GET** `/api/admin/catalog/products`
+
+Returns all products with **category metadata** included.
+
+---
+
+# 🌍 3. Public Product API (No Authentication Required)
+
+Public-facing product API under:
+
+```
+/api/products
+```
+
+Only products with status:
+
+```
+PUBLISHED
+```
+
+are returned.
+
+---
+
+## ✔ 3.1 List Products
+
+**GET** `/api/products`
+
+### Supports:
+
+#### 👉 Search
+`/api/products?search=sneakers`
+
+#### 👉 Gender filtering
+`/api/products?gender=MEN`
+
+#### 👉 Category filtering
+`/api/products?categoryId=abc123`
+
+#### 👉 Pagination
+`/api/products?page=0&limit=12`
+
+#### 👉 Sorting
+`/api/products?sort=createdAt:desc`
+
+---
+
+## ✔ 3.2 Get Product by Slug
+
+**GET** `/api/products/{slug}`
+
+Example:
+
+```
+/api/products/air-max-90
+```
+
+Returns `ProductResponse` containing:
+
+- Title, Description
+- Price, Discount
+- Images
+- Stock, Status
+- Category info
+- Created / Updated timestamps
+
+---
+
+# 🧩 4. Internal Design & Conventions
+
+## 📘 DTO Usage
+
+Backend uses DTOs such as:
+
+- `ProductResponse`
+- `ProductImageDto`
+- `CategoryResponse`
+
+Benefits:
+
+- Clean API
+- Prevents leaking internal schema
+- Easy frontend integration
+
+---
+
+# 📚 MongoDB Schema
+
+- Category IDs are **String** (Mongo ObjectId)
+- Product stores its category as a **String categoryId**
+- Products reference categories in a clean one-to-many relationship
+
+---
+
+# 🛠 5. Completed Backend Features
+
+## ✔ Admin Features
+
+- Add categories
+- List categories
+- Create product
+- Update product
+- Delete product
+- Retrieve all products with category metadata
+
+## ✔ Public Features
+
+- Browse published products
+- Search functionality
+- Gender filtering
+- Category filtering
+- Product detail via slug
+- Pagination & sorting
+
+---
+
+
 
 
 
