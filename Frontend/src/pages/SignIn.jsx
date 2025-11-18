@@ -55,7 +55,7 @@ export default function SignIn() {
       setLoading(true);
 
       // Backend request
-      const { data } = await http.post("/api/auth/signin", {
+      const { data } = await http.post("/auth/signin", {
         email: values.email,
         password: values.password,
       });

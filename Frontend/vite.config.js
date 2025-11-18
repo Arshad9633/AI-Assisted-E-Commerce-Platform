@@ -13,7 +13,7 @@ export default defineConfig({
         target: "http://backend:8000",
         changeOrigin: true,
         // Mirrors your prod Nginx `proxy_pass http://backend:8000/` behavior
-        rewrite: (p) => p.replace(/^\/api/, ""),
+        //rewrite: (p) => p.replace(/^\/api/, ""),
       },
     },
   },

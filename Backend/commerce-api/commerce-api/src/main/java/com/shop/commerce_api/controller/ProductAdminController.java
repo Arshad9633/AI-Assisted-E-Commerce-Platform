@@ -29,15 +29,17 @@ public class ProductAdminController {
     private final CategoryRepository categoryRepository;
     private final ProductRepository productRepository;
 
-    public ProductAdminController(CategoryRepository categoryRepository,
-                                  ProductRepository productRepository) {
+    public ProductAdminController(
+            CategoryRepository categoryRepository,
+            ProductRepository productRepository
+    ) {
         this.categoryRepository = categoryRepository;
         this.productRepository = productRepository;
     }
 
-    /* ============================
-          CATEGORY MANAGEMENT
-       ============================ */
+    /* ================================
+                 CATEGORIES
+       ================================ */
 
     @PostMapping("/categories")
     public ResponseEntity<CategoryResponse> createCategory(
@@ -64,16 +66,41 @@ public class ProductAdminController {
                 .collect(Collectors.toList());
     }
 
-    /* ============================
-          PRODUCT MANAGEMENT
-       ============================ */
+    @PutMapping("/categories/{id}")
+    public CategoryResponse updateCategory(
+            @PathVariable String id,
+            @RequestBody @Valid CategoryCreateRequest request
+    ) {
+        Category existing = categoryRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Category not found"));
+
+        existing.setName(request.getName());
+        existing.setGender(request.getGender());
+
+        Category saved = categoryRepository.save(existing);
+
+        return new CategoryResponse(saved.getId(), saved.getName(), saved.getGender());
+    }
+
+    @DeleteMapping("/categories/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteCategory(@PathVariable String id) {
+        if (!categoryRepository.existsById(id)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Category not found");
+        }
+        categoryRepository.deleteById(id);
+    }
+
+
+    /* ================================
+                 PRODUCTS
+       ================================ */
 
     @PostMapping("/products")
-    public ResponseEntity<ProductResponse> createProduct(@RequestBody @Valid Product p) {
-
-        // category is stored as STRING id
-        String categoryId = p.getCategory();
-        if (categoryId == null || !categoryRepository.existsById(categoryId)) {
+    public ResponseEntity<ProductResponse> createProduct(
+            @RequestBody @Valid Product p
+    ) {
+        if (p.getCategory() == null || !categoryRepository.existsById(p.getCategory())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Category not found");
         }
 
@@ -102,20 +129,17 @@ public class ProductAdminController {
         Product existing = productRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Product not found"));
 
-        // slug uniqueness
         if (p.getSlug() != null &&
                 !existing.getSlug().equals(p.getSlug()) &&
                 productRepository.existsBySlug(p.getSlug())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Slug already exists");
         }
 
-        // category validation (String ID)
         if (p.getCategory() != null &&
                 !categoryRepository.existsById(p.getCategory())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Category not found");
         }
 
-        // update allowed fields
         if (p.getTitle() != null) existing.setTitle(p.getTitle());
         if (p.getSlug() != null) existing.setSlug(p.getSlug());
         existing.setDescription(p.getDescription());
@@ -151,15 +175,15 @@ public class ProductAdminController {
                 .collect(Collectors.toList());
     }
 
-    /* ============================
-            MAPPING HELPERS
-       ============================ */
+
+    /* ================================
+              HELPER METHODS
+       ================================ */
 
     private ProductResponse toProductResponse(Product p) {
-
-        Optional<Category> categoryOpt = Optional.empty();
+        Optional<Category> cat = Optional.empty();
         if (p.getCategory() != null) {
-            categoryOpt = categoryRepository.findById(p.getCategory());
+            cat = categoryRepository.findById(p.getCategory());
         }
 
         return ProductResponse.builder()
@@ -172,32 +196,33 @@ public class ProductAdminController {
                 .currency(p.getCurrency())
                 .stock(p.getStock())
                 .status(p.getStatus())
-                .images(p.getImages() == null ? List.of()
-                        : p.getImages().stream()
-                        .map(img -> new ProductImageDto(img.getUrl(), img.getAlt()))
-                        .collect(Collectors.toList()))
+                .images(
+                        p.getImages() == null ? List.of()
+                                : p.getImages().stream()
+                                .map(i -> new ProductImageDto(i.getUrl(), i.getAlt()))
+                                .collect(Collectors.toList())
+                )
                 .tags(p.getTags())
                 .createdAt(p.getCreatedAt())
                 .updatedAt(p.getUpdatedAt())
-                .categoryId(categoryOpt.map(Category::getId).orElse(null))
-                .categoryName(categoryOpt.map(Category::getName).orElse(null))
-                .categoryGender(categoryOpt.map(Category::getGender).orElse(null))
+                .categoryId(cat.map(Category::getId).orElse(null))
+                .categoryName(cat.map(Category::getName).orElse(null))
+                .categoryGender(cat.map(Category::getGender).orElse(null))
                 .build();
     }
 
     private void validateProduct(Product p, boolean creating) {
-
         if (creating && (p.getSlug() == null || p.getSlug().isBlank())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Slug is required");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Slug required");
         }
 
         if (p.getPrice() == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Price is required");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Price required");
         }
 
         if (p.getDiscountPrice() != null &&
                 p.getDiscountPrice().compareTo(p.getPrice()) > 0) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Discount price cannot exceed price");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Discount cannot exceed price");
         }
 
         if (p.getStock() != null && p.getStock() < 0) {

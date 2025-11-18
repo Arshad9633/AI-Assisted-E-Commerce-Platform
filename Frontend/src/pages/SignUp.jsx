@@ -39,7 +39,7 @@ export default function SignUp() {
     try {
       setLoading(true);
       // Adjust to your backend contract
-      await http.post('/api/auth/signup', {
+      await http.post('/auth/signup', {
         name: values.name,
         email: values.email,
         password: values.password,

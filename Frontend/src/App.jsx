@@ -13,6 +13,7 @@ import CartPage from "./pages/CartPage";
 import AdminLayout from "./components/AdminLayout";
 import AdminHome from "./pages/admin/AdminHome";
 import AdminUsers from "./pages/admin/AdminUsers";
+import AdminCatalog from "./pages/admin/AdminCatalog";  
 
 import { ADMIN_BASE } from "./config/routes";
 
@@ -58,6 +59,7 @@ export default function App() {
         >
           <Route index element={<AdminHome />} />
           <Route path="users" element={<AdminUsers />} />
+          <Route path="catalog" element={<AdminCatalog />} />
         </Route>
 
         {/* Fallback */}
