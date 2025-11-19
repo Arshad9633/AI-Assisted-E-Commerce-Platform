@@ -51,8 +51,9 @@ public class ProductAdminController {
     public ResponseEntity<CategoryResponse> createCategory(
             @RequestBody @Valid CategoryCreateRequest request
     ) {
-        if (categoryRepository.existsByNameIgnoreCase(request.getName())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Category already exists");
+        if (categoryRepository.existsByNameIgnoreCaseAndGender(request.getName(), request.getGender())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Category already exists for this gender");
         }
 
         Category saved = categoryRepository.save(
@@ -80,6 +81,15 @@ public class ProductAdminController {
         Category existing = categoryRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Category not found"));
 
+        // check if another category (different id) already has same name + gender
+        Category duplicate = categoryRepository
+                .findByNameIgnoreCaseAndGender(request.getName(), request.getGender());
+
+        if (duplicate != null && !duplicate.getId().equals(id)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Category already exists for this gender");
+        }
+
         existing.setName(request.getName());
         existing.setGender(request.getGender());
 
@@ -87,6 +97,7 @@ public class ProductAdminController {
 
         return new CategoryResponse(saved.getId(), saved.getName(), saved.getGender());
     }
+
 
     @DeleteMapping("/categories/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)

@@ -43,6 +43,9 @@ public class SecurityConfig {
                         // Public product endpoints (storefront)
                         .requestMatchers(HttpMethod.GET, "/api/products/**").permitAll()
 
+                        // Public Categories endpoints(storefront)
+                        .requestMatchers(HttpMethod.GET, "/api/catalog/categories").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/catalog/categories/**").permitAll()
                         // Allow Spring error page (avoid 403 when an exception forwards to /error)
                         .requestMatchers("/error", "/error/**").permitAll()
 

@@ -12,5 +12,7 @@ import java.util.List;
 public interface CategoryRepository extends MongoRepository <Category, String>{
     List<Category> findByGender(Gender gender);
 
-    boolean existsByNameIgnoreCase(String name);
+    boolean existsByNameIgnoreCaseAndGender(String name, Gender gender);
+
+    Category findByNameIgnoreCaseAndGender(String name, Gender gender);
 }
