@@ -7,12 +7,14 @@ import {
   deleteCategory,
   createProduct,
   updateProduct,
-  getAdminProducts,   // ✅ ADD THIS
+  getAdminProducts,
 } from "../../api/adminCatalog";
 import { useSearchParams } from "react-router-dom";
+import { uploadImage } from "../../api/upload";
 
 const GENDERS = ["MEN", "WOMEN"];
 const STATUSES = ["DRAFT", "PUBLISHED", "ARCHIVED"];
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 
 export default function AdminCatalog() {
   const [params] = useSearchParams();
@@ -43,7 +45,9 @@ export default function AdminCatalog() {
   const [editingProduct, setEditingProduct] = useState(null);
   const [productLoading, setProductLoading] = useState(false);
 
-  const [images, setImages] = useState([]);
+  // Images: existing (from backend) + new files (to be uploaded)
+  const [existingImages, setExistingImages] = useState([]); // [{ url, alt }]
+  const [newImages, setNewImages] = useState([]); // File[]
 
   /* --------------------
         FILTER CATS
@@ -60,7 +64,8 @@ export default function AdminCatalog() {
     setTitle(v);
     if (!slug) {
       setSlug(
-        v.trim()
+        v
+          .trim()
           .toLowerCase()
           .replace(/[^a-z0-9]+/g, "-")
           .replace(/^-+|-+$/g, "")
@@ -87,7 +92,6 @@ export default function AdminCatalog() {
   /* --------------------
      LOAD PRODUCT FOR EDIT
   -------------------- */
-  // Load product for editing
   useEffect(() => {
     async function loadEditProduct() {
       if (!editId) return;
@@ -98,16 +102,20 @@ export default function AdminCatalog() {
 
         if (product) {
           setEditingProduct(product.id);
-          setProductGender(product.categoryGender);
-          setProductCategoryId(product.categoryId);
-          setTitle(product.title);
-          setSlug(product.slug);
-          setDescription(product.description);
-          setPrice(product.price);
-          setDiscountPrice(product.discountPrice || "");
-          setCurrency(product.currency);
-          setStock(product.stock);
-          setStatus(product.status);
+          setProductGender(product.categoryGender || "");
+          setProductCategoryId(product.categoryId || "");
+          setTitle(product.title || "");
+          setSlug(product.slug || "");
+          setDescription(product.description || "");
+          setPrice(product.price ?? "");
+          setDiscountPrice(product.discountPrice ?? "");
+          setCurrency(product.currency || "EUR");
+          setStock(product.stock ?? "");
+          setStatus(product.status || "PUBLISHED");
+
+          // product.images is [{ url, alt }]
+          setExistingImages(product.images || []);
+          setNewImages([]);
         }
       } catch {
         toast.error("Failed to load product");
@@ -165,28 +173,46 @@ export default function AdminCatalog() {
     if (!productCategoryId) return toast.error("Choose a category");
     if (!title.trim()) return toast.error("Product title is required");
 
-    /* Convert images to previews (NOT backend upload yet) */
-    const imagePayload = images.map((file) => ({
-      url: URL.createObjectURL(file),
-      alt: title,
-    }));
-
-    const payload = {
-      title,
-      slug,
-      description,
-      price: Number(price),
-      discountPrice: discountPrice ? Number(discountPrice) : null,
-      currency,
-      stock: stock ? Number(stock) : 0,
-      status,
-      category: productCategoryId,
-      images: imagePayload,
-      tags: [],
-    };
+    // Frontend size check (10MB per file)
+    for (const file of newImages) {
+      if (file.size > MAX_FILE_SIZE) {
+        toast.error(`"${file.name}" exceeds 10 MB limit`);
+        return;
+      }
+    }
 
     try {
       setProductLoading(true);
+
+      // 1) Upload new images to backend → Cloudinary
+      let uploadedDtos = [];
+      if (newImages.length > 0) {
+        const urls = await Promise.all(
+          newImages.map((file) => uploadImage(file))
+        );
+        uploadedDtos = urls.map((url) => ({
+          url,
+          alt: title,
+        }));
+      }
+
+      // 2) Combine old + new images
+      const finalImages = [...(existingImages || []), ...uploadedDtos];
+
+      // 3) Build payload for product create/update
+      const payload = {
+        title,
+        slug,
+        description,
+        price: Number(price),
+        discountPrice: discountPrice ? Number(discountPrice) : null,
+        currency,
+        stock: stock ? Number(stock) : 0,
+        status,
+        category: productCategoryId,
+        images: finalImages,
+        tags: [],
+      };
 
       if (editingProduct) {
         await updateProduct(editingProduct, payload);
@@ -197,8 +223,12 @@ export default function AdminCatalog() {
       }
 
       resetProductForm();
-    } catch {
-      toast.error("Failed to save product");
+    } catch (err) {
+      const msg =
+        err?.response?.data?.message ||
+        err?.message ||
+        "Failed to save product";
+      toast.error(msg);
     } finally {
       setProductLoading(false);
     }
@@ -214,7 +244,8 @@ export default function AdminCatalog() {
     setStock("");
     setProductGender("");
     setProductCategoryId("");
-    setImages([]);
+    setExistingImages([]);
+    setNewImages([]);
   }
 
   /* --------------------
@@ -225,7 +256,6 @@ export default function AdminCatalog() {
       <h1 className="text-3xl font-bold text-gray-900">Catalog Management</h1>
 
       <div className="grid md:grid-cols-2 gap-8">
-
         {/* --------------------
             CATEGORY SECTION
         -------------------- */}
@@ -276,7 +306,9 @@ export default function AdminCatalog() {
                 <li key={c.id} className="flex justify-between items-center">
                   <div>
                     <span className="font-medium">{c.name}</span>
-                    <span className="text-xs text-gray-500 ml-2">{c.gender}</span>
+                    <span className="text-xs text-gray-500 ml-2">
+                      {c.gender}
+                    </span>
                   </div>
 
                   <div className="flex gap-3">
@@ -450,21 +482,45 @@ export default function AdminCatalog() {
                 type="file"
                 multiple
                 accept="image/*"
-                onChange={(e) => setImages([...e.target.files])}
+                onChange={(e) => setNewImages([...e.target.files])}
                 className="w-full mt-2 rounded-md border-gray-300 shadow-sm bg-white"
               />
 
-              {/* Preview */}
-              {images.length > 0 && (
-                <div className="mt-3 grid grid-cols-3 gap-2">
-                  {images.map((img, idx) => (
-                    <img
-                      key={idx}
-                      src={URL.createObjectURL(img)}
-                      alt="preview"
-                      className="h-20 w-full object-cover rounded-md border"
-                    />
-                  ))}
+              {/* Existing Images */}
+              {existingImages.length > 0 && (
+                <div className="mt-3">
+                  <p className="text-xs text-gray-500 mb-1">
+                    Existing images (already saved):
+                  </p>
+                  <div className="grid grid-cols-3 gap-2">
+                    {existingImages.map((img, idx) => (
+                      <img
+                        key={idx}
+                        src={img.url}
+                        alt={img.alt || "product image"}
+                        className="h-20 w-full object-cover rounded-md border"
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* New Images Preview */}
+              {newImages.length > 0 && (
+                <div className="mt-3">
+                  <p className="text-xs text-gray-500 mb-1">
+                    New images (will be uploaded on save):
+                  </p>
+                  <div className="grid grid-cols-3 gap-2">
+                    {newImages.map((file, idx) => (
+                      <img
+                        key={idx}
+                        src={URL.createObjectURL(file)}
+                        alt="preview"
+                        className="h-20 w-full object-cover rounded-md border"
+                      />
+                    ))}
+                  </div>
                 </div>
               )}
             </div>

@@ -42,6 +42,16 @@ export default function Navbar() {
       ? "bg-white/90 backdrop-blur-lg shadow-md"
       : "bg-white/10 backdrop-blur-xl");
 
+  const closeDropdowns = () => {
+    setOpenMen(false);
+    setOpenWomen(false);
+  };
+
+  const closeAllMenus = () => {
+    setOpenMobile(false);
+    closeDropdowns();
+  };
+
   const ProductLink = ({ to, Icon, label, closeAll }) => (
     <Link
       to={to}
@@ -57,28 +67,23 @@ export default function Navbar() {
     </Link>
   );
 
-  const closeAllMenus = () => {
-    setOpenMen(false);
-    setOpenWomen(false);
-    setOpenMobile(false);
-  };
-
   return (
     <header className={navClass}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* NAVBAR */}
+        {/* TOP BAR */}
         <nav className="h-16 flex items-center justify-between">
           {/* Logo */}
           <Link
             to="/"
             className="text-xl font-extrabold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent"
+            onClick={closeAllMenus}
           >
             E-Commerce
           </Link>
 
           {/* DESKTOP MENU */}
           <div className="hidden md:flex items-center gap-8">
-            {/* MEN MEGAMENU (click to open) */}
+            {/* MEN MEGAMENU */}
             <div className="relative">
               <button
                 className="flex items-center gap-1 text-sm font-medium text-gray-800 hover:text-indigo-600"
@@ -138,7 +143,7 @@ export default function Navbar() {
               )}
             </div>
 
-            {/* WOMEN MEGAMENU (click to open) */}
+            {/* WOMEN MEGAMENU */}
             <div className="relative">
               <button
                 className="flex items-center gap-1 text-sm font-medium text-gray-800 hover:text-indigo-600"
@@ -202,6 +207,7 @@ export default function Navbar() {
             <Link
               to="/cart"
               className="flex items-center gap-1 text-gray-800 hover:text-indigo-600"
+              onClick={closeAllMenus}
             >
               <ShoppingCart className="h-5 w-5" />
               Cart
@@ -213,12 +219,14 @@ export default function Navbar() {
                 <Link
                   to="/signin"
                   className="text-sm font-medium hover:text-indigo-600"
+                  onClick={closeAllMenus}
                 >
                   Sign In
                 </Link>
                 <Link
                   to="/signup"
                   className="px-4 py-2 rounded-full text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 shadow"
+                  onClick={closeAllMenus}
                 >
                   Sign Up
                 </Link>
@@ -245,13 +253,186 @@ export default function Navbar() {
           {/* MOBILE MENU BUTTON */}
           <button
             className="md:hidden p-2 rounded-md hover:bg-gray-100 text-gray-700"
-            onClick={() => setOpenMobile((v) => !v)}
+            onClick={() => {
+              setOpenMobile((v) => !v);
+              if (!openMobile === true) {
+                closeDropdowns();
+              }
+            }}
+            aria-label="Toggle navigation menu"
           >
             <svg width="24" height="24" fill="none" stroke="currentColor">
               <path strokeWidth="2" d="M4 7h16M4 12h16M4 17h16" />
             </svg>
           </button>
         </nav>
+
+        {/* MOBILE MENU DROPDOWN */}
+        {openMobile && (
+          <div className="md:hidden border-t border-gray-200 bg-white/95 backdrop-blur pb-3">
+            <div className="pt-2 space-y-1">
+              {/* Men (accordion style) */}
+              <button
+                className="w-full flex items-center justify-between px-3 py-2 text-sm font-medium text-gray-800 hover:bg-gray-50"
+                onClick={() => {
+                  setOpenMen((v) => !v);
+                  setOpenWomen(false);
+                }}
+              >
+                <span>Men</span>
+                <ChevronDown
+                  className={`h-4 w-4 transition-transform ${
+                    openMen ? "rotate-180" : ""
+                  }`}
+                />
+              </button>
+              {openMen && (
+                <div className="pl-4 pb-2 space-y-1">
+                  <ProductLink
+                    to="/products/men/shoes"
+                    Icon={Footprints}
+                    label="Shoes"
+                    closeAll={closeAllMenus}
+                  />
+                  <ProductLink
+                    to="/products/men/clothing"
+                    Icon={Shirt}
+                    label="Clothing"
+                    closeAll={closeAllMenus}
+                  />
+                  <ProductLink
+                    to="/products/men/bags"
+                    Icon={Handbag}
+                    label="Bags"
+                    closeAll={closeAllMenus}
+                  />
+                  <ProductLink
+                    to="/products/men/accessories"
+                    Icon={Sparkles}
+                    label="Accessories"
+                    closeAll={closeAllMenus}
+                  />
+                  <ProductLink
+                    to="/products/men/watches"
+                    Icon={Watch}
+                    label="Watches"
+                    closeAll={closeAllMenus}
+                  />
+                  <ProductLink
+                    to="/products/men/sportswear"
+                    Icon={Dumbbell}
+                    label="Sportswear"
+                    closeAll={closeAllMenus}
+                  />
+                </div>
+              )}
+
+              {/* Women */}
+              <button
+                className="w-full flex items-center justify-between px-3 py-2 text-sm font-medium text-gray-800 hover:bg-gray-50"
+                onClick={() => {
+                  setOpenWomen((v) => !v);
+                  setOpenMen(false);
+                }}
+              >
+                <span>Women</span>
+                <ChevronDown
+                  className={`h-4 w-4 transition-transform ${
+                    openWomen ? "rotate-180" : ""
+                  }`}
+                />
+              </button>
+              {openWomen && (
+                <div className="pl-4 pb-2 space-y-1">
+                  <ProductLink
+                    to="/products/women/shoes"
+                    Icon={Footprints}
+                    label="Shoes"
+                    closeAll={closeAllMenus}
+                  />
+                  <ProductLink
+                    to="/products/women/clothing"
+                    Icon={Shirt}
+                    label="Clothing"
+                    closeAll={closeAllMenus}
+                  />
+                  <ProductLink
+                    to="/products/women/bags"
+                    Icon={Handbag}
+                    label="Bags"
+                    closeAll={closeAllMenus}
+                  />
+                  <ProductLink
+                    to="/products/women/accessories"
+                    Icon={Sparkles}
+                    label="Accessories"
+                    closeAll={closeAllMenus}
+                  />
+                  <ProductLink
+                    to="/products/women/watches"
+                    Icon={Watch}
+                    label="Watches"
+                    closeAll={closeAllMenus}
+                  />
+                  <ProductLink
+                    to="/products/women/beauty"
+                    Icon={Sparkles}
+                    label="Beauty"
+                    closeAll={closeAllMenus}
+                  />
+                </div>
+              )}
+
+              {/* Cart */}
+              <Link
+                to="/cart"
+                className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-800 hover:bg-gray-50"
+                onClick={closeAllMenus}
+              >
+                <ShoppingCart className="h-5 w-5" />
+                <span>Cart</span>
+              </Link>
+
+              {/* Auth area */}
+              {!isAuthenticated ? (
+                <div className="flex gap-2 px-3 pt-2">
+                  <Link
+                    to="/signin"
+                    className="flex-1 text-center rounded-full border border-gray-300 px-3 py-2 text-sm font-medium text-gray-800 hover:bg-gray-50"
+                    onClick={closeAllMenus}
+                  >
+                    Sign In
+                  </Link>
+                  <Link
+                    to="/signup"
+                    className="flex-1 text-center rounded-full bg-indigo-600 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-700"
+                    onClick={closeAllMenus}
+                  >
+                    Sign Up
+                  </Link>
+                </div>
+              ) : (
+                <div className="px-3 pt-2 space-y-1">
+                  <p className="text-xs text-gray-600">
+                    Logged in as{" "}
+                    <span className="font-semibold text-gray-900">
+                      {displayName}
+                    </span>
+                  </p>
+                  <button
+                    onClick={() => {
+                      handleLogout();
+                      closeAllMenus();
+                    }}
+                    className="w-full rounded-full bg-gray-100 px-3 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-200"
+                  >
+                    Logout
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </header>
   );
