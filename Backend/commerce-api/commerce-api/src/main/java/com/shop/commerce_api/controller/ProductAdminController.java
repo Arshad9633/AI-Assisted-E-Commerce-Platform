@@ -10,14 +10,20 @@ import com.shop.commerce_api.repository.CategoryRepository;
 import com.shop.commerce_api.repository.ProductRepository;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.io.File;
+import java.io.IOException;
 import java.net.URI;
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -235,5 +241,29 @@ public class ProductAdminController {
                         p.getStatus().equals("ARCHIVED"))) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid product status");
         }
+    }
+
+    // Image upload
+    @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<Map<String, String>> uploadImage(
+            @RequestPart("file") MultipartFile file) throws IOException {
+
+        if (file.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "No file uploaded");
+        }
+
+        String uploadDir = "uploads/";
+        File dir = new File(uploadDir);
+        if (!dir.exists()) dir.mkdirs();
+
+        String fileName = System.currentTimeMillis() + "_" + file.getOriginalFilename();
+        File savedFile = new File(uploadDir + fileName);
+        file.transferTo(savedFile);
+
+        String url = "/uploads/" + fileName;
+
+        Map<String, String> response = new HashMap<>();
+        response.put("url", url);
+        return ResponseEntity.ok(response);
     }
 }

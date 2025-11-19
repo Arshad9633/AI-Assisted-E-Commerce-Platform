@@ -5,26 +5,31 @@ import {
   createCategory,
   updateCategory,
   deleteCategory,
-  getAdminProducts,
   createProduct,
   updateProduct,
-  deleteProduct,
+  getAdminProducts,   // ✅ ADD THIS
 } from "../../api/adminCatalog";
+import { useSearchParams } from "react-router-dom";
 
 const GENDERS = ["MEN", "WOMEN"];
 const STATUSES = ["DRAFT", "PUBLISHED", "ARCHIVED"];
 
 export default function AdminCatalog() {
-  // CATEGORY STATE
+  const [params] = useSearchParams();
+  const editId = params.get("edit");
+
+  /* --------------------
+      CATEGORY STATE
+  -------------------- */
   const [categories, setCategories] = useState([]);
   const [catName, setCatName] = useState("");
   const [catGender, setCatGender] = useState("MEN");
-  const [catLoading, setCatLoading] = useState(false);
   const [editingCategory, setEditingCategory] = useState(null);
+  const [catLoading, setCatLoading] = useState(false);
 
-  // PRODUCT STATE
-  const [productGender, setProductGender] = useState("");
-  const [productCategoryId, setProductCategoryId] = useState("");
+  /* --------------------
+      PRODUCT STATE
+  -------------------- */
   const [title, setTitle] = useState("");
   const [slug, setSlug] = useState("");
   const [description, setDescription] = useState("");
@@ -33,25 +38,29 @@ export default function AdminCatalog() {
   const [currency, setCurrency] = useState("EUR");
   const [stock, setStock] = useState("");
   const [status, setStatus] = useState("PUBLISHED");
-  const [productLoading, setProductLoading] = useState(false);
+  const [productGender, setProductGender] = useState("");
+  const [productCategoryId, setProductCategoryId] = useState("");
   const [editingProduct, setEditingProduct] = useState(null);
+  const [productLoading, setProductLoading] = useState(false);
 
-  // PRODUCT LIST
-  const [adminProducts, setAdminProducts] = useState([]);
-  const [productsLoading, setProductsLoading] = useState(false);
+  const [images, setImages] = useState([]);
 
+  /* --------------------
+        FILTER CATS
+  -------------------- */
   const filteredCategories = useMemo(() => {
     if (!productGender) return categories;
     return categories.filter((c) => c.gender === productGender);
   }, [categories, productGender]);
 
-  // Auto slug
+  /* --------------------
+        SLUG GENERATION
+  -------------------- */
   const handleTitleChange = (v) => {
     setTitle(v);
     if (!slug) {
       setSlug(
-        v
-          .trim()
+        v.trim()
           .toLowerCase()
           .replace(/[^a-z0-9]+/g, "-")
           .replace(/^-+|-+$/g, "")
@@ -59,28 +68,59 @@ export default function AdminCatalog() {
     }
   };
 
-  // INITIAL LOAD
+  /* --------------------
+        INITIAL LOAD
+  -------------------- */
   useEffect(() => {
-    async function load() {
-      try {
-        setProductsLoading(true);
-        const [cats, products] = await Promise.all([
-          getCategories(),
-          getAdminProducts(),
-        ]);
-        setCategories(cats);
-        setAdminProducts(products);
-      } catch (e) {
-        toast.error("Failed to load catalog");
-      } finally {
-        setProductsLoading(false);
-      }
-    }
-    load();
+    loadCategories();
   }, []);
 
-  // CATEGORY: CREATE + UPDATE
-  const handleCreateCategory = async (e) => {
+  async function loadCategories() {
+    try {
+      const cats = await getCategories();
+      setCategories(cats);
+    } catch {
+      toast.error("Failed to load categories");
+    }
+  }
+
+  /* --------------------
+     LOAD PRODUCT FOR EDIT
+  -------------------- */
+  // Load product for editing
+  useEffect(() => {
+    async function loadEditProduct() {
+      if (!editId) return;
+
+      try {
+        const all = await getAdminProducts();
+        const product = all.find((p) => p.id === editId);
+
+        if (product) {
+          setEditingProduct(product.id);
+          setProductGender(product.categoryGender);
+          setProductCategoryId(product.categoryId);
+          setTitle(product.title);
+          setSlug(product.slug);
+          setDescription(product.description);
+          setPrice(product.price);
+          setDiscountPrice(product.discountPrice || "");
+          setCurrency(product.currency);
+          setStock(product.stock);
+          setStatus(product.status);
+        }
+      } catch {
+        toast.error("Failed to load product");
+      }
+    }
+
+    loadEditProduct();
+  }, [editId]);
+
+  /* --------------------
+     CATEGORY CREATE/EDIT
+  -------------------- */
+  async function handleCreateCategory(e) {
     e.preventDefault();
     if (!catName.trim()) return toast.error("Category name required");
 
@@ -105,7 +145,7 @@ export default function AdminCatalog() {
           gender: catGender,
         });
         setCategories((prev) => [...prev, newCat]);
-        toast.success("Category created");
+        toast.success("Category added");
       }
 
       setCatName("");
@@ -114,14 +154,22 @@ export default function AdminCatalog() {
     } finally {
       setCatLoading(false);
     }
-  };
+  }
 
-  // PRODUCT: CREATE + UPDATE
-  const handleCreateProduct = async (e) => {
+  /* --------------------
+     PRODUCT CREATE/EDIT
+  -------------------- */
+  async function handleCreateProduct(e) {
     e.preventDefault();
 
     if (!productCategoryId) return toast.error("Choose a category");
     if (!title.trim()) return toast.error("Product title is required");
+
+    /* Convert images to previews (NOT backend upload yet) */
+    const imagePayload = images.map((file) => ({
+      url: URL.createObjectURL(file),
+      alt: title,
+    }));
 
     const payload = {
       title,
@@ -133,7 +181,7 @@ export default function AdminCatalog() {
       stock: stock ? Number(stock) : 0,
       status,
       category: productCategoryId,
-      images: [],
+      images: imagePayload,
       tags: [],
     };
 
@@ -141,57 +189,46 @@ export default function AdminCatalog() {
       setProductLoading(true);
 
       if (editingProduct) {
-        const updated = await updateProduct(editingProduct, payload);
-
-        setAdminProducts((prev) =>
-          prev.map((p) => (p.id === updated.id ? updated : p))
-        );
-
-        setEditingProduct(null);
+        await updateProduct(editingProduct, payload);
         toast.success("Product updated");
       } else {
-        const created = await createProduct(payload);
-        setAdminProducts((prev) => [created, ...prev]);
+        await createProduct(payload);
         toast.success("Product created");
       }
 
-      // Reset form
-      setTitle("");
-      setSlug("");
-      setDescription("");
-      setPrice("");
-      setDiscountPrice("");
-      setStock("");
-      setProductGender("");
-      setProductCategoryId("");
+      resetProductForm();
     } catch {
       toast.error("Failed to save product");
     } finally {
       setProductLoading(false);
     }
-  };
+  }
 
-  // LOAD PRODUCT INTO FORM FOR EDITING
-  const loadProductForEdit = (p) => {
-    setEditingProduct(p.id);
-    setTitle(p.title);
-    setSlug(p.slug);
-    setDescription(p.description);
-    setPrice(p.price);
-    setDiscountPrice(p.discountPrice || "");
-    setCurrency(p.currency);
-    setStock(p.stock);
-    setStatus(p.status);
-    setProductGender(p.categoryGender);
-    setProductCategoryId(p.categoryId);
-  };
+  function resetProductForm() {
+    setEditingProduct(null);
+    setTitle("");
+    setSlug("");
+    setDescription("");
+    setPrice("");
+    setDiscountPrice("");
+    setStock("");
+    setProductGender("");
+    setProductCategoryId("");
+    setImages([]);
+  }
 
+  /* --------------------
+        RENDER PAGE
+  -------------------- */
   return (
     <div className="space-y-10">
       <h1 className="text-3xl font-bold text-gray-900">Catalog Management</h1>
 
       <div className="grid md:grid-cols-2 gap-8">
-        {/* CATEGORY SECTION */}
+
+        {/* --------------------
+            CATEGORY SECTION
+        -------------------- */}
         <section className="bg-white p-6 rounded-xl shadow border border-gray-200">
           <h2 className="text-xl font-semibold mb-4">
             {editingCategory ? "Edit Category" : "Add Category"}
@@ -201,18 +238,18 @@ export default function AdminCatalog() {
             <div>
               <label className="text-sm font-medium">Category Name</label>
               <input
-                className="w-full mt-1 rounded-md border-gray-300 shadow-sm"
                 value={catName}
                 onChange={(e) => setCatName(e.target.value)}
+                className="w-full mt-1 rounded-md border-gray-300 shadow-sm"
               />
             </div>
 
             <div>
               <label className="text-sm font-medium">Gender</label>
               <select
-                className="w-full mt-1 rounded-md border-gray-300 shadow-sm"
                 value={catGender}
                 onChange={(e) => setCatGender(e.target.value)}
+                className="w-full mt-1 rounded-md border-gray-300 shadow-sm"
               >
                 {GENDERS.map((g) => (
                   <option key={g}>{g}</option>
@@ -221,13 +258,14 @@ export default function AdminCatalog() {
             </div>
 
             <button
-              className="px-4 py-2 rounded-lg bg-indigo-600 text-white font-medium hover:bg-indigo-700"
               disabled={catLoading}
+              className="px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700"
             >
               {editingCategory ? "Update Category" : "Create Category"}
             </button>
           </form>
 
+          {/* CATEGORY LIST */}
           <div className="mt-6">
             <h3 className="text-sm font-medium text-gray-700 mb-2">
               Existing Categories
@@ -235,15 +273,10 @@ export default function AdminCatalog() {
 
             <ul className="space-y-1 text-sm">
               {categories.map((c) => (
-                <li
-                  key={c.id}
-                  className="flex justify-between items-center py-1"
-                >
+                <li key={c.id} className="flex justify-between items-center">
                   <div>
                     <span className="font-medium">{c.name}</span>
-                    <span className="text-xs text-gray-500 ml-2">
-                      {c.gender}
-                    </span>
+                    <span className="text-xs text-gray-500 ml-2">{c.gender}</span>
                   </div>
 
                   <div className="flex gap-3">
@@ -278,13 +311,16 @@ export default function AdminCatalog() {
           </div>
         </section>
 
-        {/* PRODUCT SECTION */}
+        {/* --------------------
+            PRODUCT FORM
+        -------------------- */}
         <section className="bg-white p-6 rounded-xl shadow border border-gray-200">
           <h2 className="text-xl font-semibold mb-4">
             {editingProduct ? "Edit Product" : "Add Product"}
           </h2>
 
           <form className="space-y-4" onSubmit={handleCreateProduct}>
+            {/* Gender */}
             <div>
               <label className="text-sm font-medium">Gender</label>
               <select
@@ -302,6 +338,7 @@ export default function AdminCatalog() {
               </select>
             </div>
 
+            {/* Category */}
             <div>
               <label className="text-sm font-medium">Category</label>
               <select
@@ -318,6 +355,7 @@ export default function AdminCatalog() {
               </select>
             </div>
 
+            {/* Title */}
             <div>
               <label className="text-sm font-medium">Title</label>
               <input
@@ -327,6 +365,7 @@ export default function AdminCatalog() {
               />
             </div>
 
+            {/* Slug */}
             <div>
               <label className="text-sm font-medium">Slug</label>
               <input
@@ -336,6 +375,7 @@ export default function AdminCatalog() {
               />
             </div>
 
+            {/* Description */}
             <div>
               <label className="text-sm font-medium">Description</label>
               <textarea
@@ -346,6 +386,7 @@ export default function AdminCatalog() {
               />
             </div>
 
+            {/* Price + Discount */}
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="text-sm font-medium">Price</label>
@@ -356,7 +397,6 @@ export default function AdminCatalog() {
                   className="w-full mt-1 rounded-md border-gray-300 shadow-sm"
                 />
               </div>
-
               <div>
                 <label className="text-sm font-medium">Discount Price</label>
                 <input
@@ -368,6 +408,7 @@ export default function AdminCatalog() {
               </div>
             </div>
 
+            {/* Currency + Stock + Status */}
             <div className="grid grid-cols-3 gap-4">
               <div>
                 <label className="text-sm font-medium">Currency</label>
@@ -402,87 +443,41 @@ export default function AdminCatalog() {
               </div>
             </div>
 
+            {/* Image Upload */}
+            <div>
+              <label className="text-sm font-medium">Product Images</label>
+              <input
+                type="file"
+                multiple
+                accept="image/*"
+                onChange={(e) => setImages([...e.target.files])}
+                className="w-full mt-2 rounded-md border-gray-300 shadow-sm bg-white"
+              />
+
+              {/* Preview */}
+              {images.length > 0 && (
+                <div className="mt-3 grid grid-cols-3 gap-2">
+                  {images.map((img, idx) => (
+                    <img
+                      key={idx}
+                      src={URL.createObjectURL(img)}
+                      alt="preview"
+                      className="h-20 w-full object-cover rounded-md border"
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+
             <button
-              className="px-4 py-2 rounded-lg bg-indigo-600 text-white font-medium hover:bg-indigo-700"
               disabled={productLoading}
+              className="px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700"
             >
               {editingProduct ? "Update Product" : "Create Product"}
             </button>
           </form>
         </section>
       </div>
-
-      {/* PRODUCT LIST */}
-      <section className="bg-white p-6 rounded-xl shadow border border-gray-200">
-        <h2 className="text-xl font-semibold mb-4">
-          Latest Products{" "}
-          {productsLoading && (
-            <span className="text-xs text-gray-500">(Loading...)</span>
-          )}
-        </h2>
-
-        {adminProducts.length === 0 ? (
-          <p className="text-gray-500">No products yet.</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead className="bg-gray-50 text-gray-600 text-xs uppercase border-b">
-                <tr>
-                  <th className="py-3 px-4">Title</th>
-                  <th className="py-3 px-4">Slug</th>
-                  <th className="py-3 px-4">Price</th>
-                  <th className="py-3 px-4">Status</th>
-                  <th className="py-3 px-4">Category</th>
-                  <th className="py-3 px-4">Gender</th>
-                  <th className="py-3 px-4">Actions</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {adminProducts.map((p) => (
-                  <tr key={p.id} className="border-b">
-                    <td className="py-3 px-4">{p.title}</td>
-                    <td className="py-3 px-4 text-gray-500">{p.slug}</td>
-                    <td className="py-3 px-4">
-                      {p.price} {p.currency}
-                    </td>
-                    <td className="py-3 px-4">{p.status}</td>
-                    <td className="py-3 px-4">{p.categoryName}</td>
-                    <td className="py-3 px-4">{p.categoryGender || "-"}</td>
-
-                    <td className="py-3 px-4 flex gap-3 text-xs">
-
-                      {/* EDIT PRODUCT */}
-                      <button
-                        onClick={() => loadProductForEdit(p)}
-                        className="text-blue-600 hover:underline"
-                      >
-                        Edit
-                      </button>
-
-                      {/* DELETE PRODUCT */}
-                      <button
-                        onClick={async () => {
-                          if (!confirm("Delete this product?")) return;
-                          await deleteProduct(p.id);
-                          setAdminProducts((prev) =>
-                            prev.filter((x) => x.id !== p.id)
-                          );
-                          toast.success("Product deleted");
-                        }}
-                        className="text-red-600 hover:underline"
-                      >
-                        Delete
-                      </button>
-
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
     </div>
   );
 }

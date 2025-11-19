@@ -8,7 +8,7 @@ export default function AdminUsers() {
 
   async function fetchUsers() {
     try {
-      const { data } = await http.get("/api/admin/users");
+      const { data } = await http.get("/admin/users");
       setUsers(Array.isArray(data) ? data : []);
     } catch (error) {
       toast.error(error.response?.data?.message || "Failed to fetch users");
@@ -19,7 +19,7 @@ export default function AdminUsers() {
 
   async function promoteUser(email) {
     try {
-      await http.post("/api/admin/promote", { email });
+      await http.post("/admin/promote", { email });
       toast.success(`User ${email} promoted to admin`);
       fetchUsers();
     } catch (error) {
@@ -29,7 +29,7 @@ export default function AdminUsers() {
 
   async function demoteUser(email) {
     try {
-      await http.post("/api/admin/demote", { email });
+      await http.post("/admin/demote", { email });
       toast.success(`Admin ${email} demoted to user`);
       fetchUsers();
     } catch (error) {

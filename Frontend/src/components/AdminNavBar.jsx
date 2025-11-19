@@ -9,7 +9,6 @@ export default function AdminNavBar() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Close mobile menu when path changes
   useEffect(() => {
     setOpen(false);
   }, [location.pathname]);
@@ -31,22 +30,16 @@ export default function AdminNavBar() {
     <nav className="bg-gray-800 text-white shadow-md">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-14 items-center justify-between">
-
-          {/* LEFT: Brand + Mobile Toggle */}
+          
+          {/* LEFT — Logo + Mobile toggle */}
           <div className="flex items-center gap-3">
             <button
               className="sm:hidden p-2 rounded-md hover:bg-gray-700"
               onClick={() => setOpen((v) => !v)}
-              aria-label="Toggle menu"
-              aria-expanded={open}
             >
-              <svg xmlns="http://www.w3.org/2000/svg"
-                className="h-5 w-5"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round"
-                  strokeWidth={2}
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5"
+                fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                   d="M4 6h16M4 12h16M4 18h16" />
               </svg>
             </button>
@@ -62,7 +55,7 @@ export default function AdminNavBar() {
             <NavLink
               to={ADMIN_BASE}
               end
-              className={({ isActive }) =>
+              className={({ isActive }) => 
                 `${baseStyle} ${isActive ? activeStyle : inactiveStyle}`
               }
             >
@@ -71,26 +64,36 @@ export default function AdminNavBar() {
 
             <NavLink
               to={`${ADMIN_BASE}/users`}
-              className={({ isActive }) =>
+              className={({ isActive }) => 
                 `${baseStyle} ${isActive ? activeStyle : inactiveStyle}`
               }
             >
               Users
             </NavLink>
 
-            {/* ⭐ NEW CATALOG LINK */}
+            {/* ⭐ Catalog (Add categories, etc.) */}
             <NavLink
               to={`${ADMIN_BASE}/catalog`}
-              className={({ isActive }) =>
+              className={({ isActive }) => 
                 `${baseStyle} ${isActive ? activeStyle : inactiveStyle}`
               }
             >
               Catalog
             </NavLink>
 
+            {/* ⭐ NEW PRODUCTS PAGE */}
+            <NavLink
+              to={`${ADMIN_BASE}/products`}
+              className={({ isActive }) =>
+                `${baseStyle} ${isActive ? activeStyle : inactiveStyle}`
+              }
+            >
+              Products
+            </NavLink>
+
             <NavLink
               to={`${ADMIN_BASE}/settings`}
-              className={({ isActive }) =>
+              className={({ isActive }) => 
                 `${baseStyle} ${isActive ? activeStyle : inactiveStyle}`
               }
             >
@@ -98,10 +101,11 @@ export default function AdminNavBar() {
             </NavLink>
           </div>
 
-          {/* RIGHT SIDE: email + logout */}
+          {/* RIGHT — Email + Logout */}
           <div className="hidden sm:flex items-center gap-3">
-            {email && <span className="text-xs text-gray-300">{email}</span>}
-
+            {email && (
+              <span className="text-xs text-gray-300">{email}</span>
+            )}
             <button
               onClick={doLogout}
               className="rounded-md bg-red-600 px-3 py-2 text-sm font-medium hover:bg-red-700"
@@ -136,7 +140,6 @@ export default function AdminNavBar() {
               Users
             </NavLink>
 
-            {/* ⭐ NEW CATALOG LINK */}
             <NavLink
               to={`${ADMIN_BASE}/catalog`}
               className={({ isActive }) =>
@@ -144,6 +147,16 @@ export default function AdminNavBar() {
               }
             >
               Catalog
+            </NavLink>
+
+            {/* ⭐ NEW PRODUCTS PAGE in mobile menu */}
+            <NavLink
+              to={`${ADMIN_BASE}/products`}
+              className={({ isActive }) =>
+                `block ${baseStyle} ${isActive ? activeStyle : inactiveStyle}`
+              }
+            >
+              Products
             </NavLink>
 
             <NavLink
