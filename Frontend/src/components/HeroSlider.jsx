@@ -4,12 +4,10 @@ import { useKeenSlider } from "keen-slider/react";
 import "keen-slider/keen-slider.min.css";
 
 export default function HeroSlider({ products = [] }) {
-  // We use a "key" to force the slider to remount when product data updates
   const [sliderKey, setSliderKey] = useState(0);
 
-  // Convert products → slides
   const slides = useMemo(() => {
-    const mapped = (products || [])
+    return (products || [])
       .filter((p) => p?.images?.[0]?.url)
       .slice(0, 4)
       .map((p) => ({
@@ -19,11 +17,9 @@ export default function HeroSlider({ products = [] }) {
         currency: p.currency || "EUR",
         imageUrl: p.images[0].url,
       }));
-
-    return mapped;
   }, [products]);
 
-  // Force slider to re-initialize when product list changes
+  // Remount slider when product count changes
   useEffect(() => {
     setSliderKey((k) => k + 1);
   }, [slides.length]);
@@ -37,18 +33,14 @@ export default function HeroSlider({ products = [] }) {
         spacing: 0,
       },
       breakpoints: {
-        "(min-width: 640px)": {
-          slides: { perView: 1, spacing: 0 },
-        },
-        "(min-width: 1024px)": {
-          slides: { perView: 1, spacing: 0 },
-        },
+        "(min-width: 640px)": { slides: { perView: 1 } },
+        "(min-width: 1024px)": { slides: { perView: 1 } },
       },
       drag: true,
       rubberband: true,
     },
     [
-      // Autoplay plugin
+      // SAFE AUTOPLAY PLUGIN
       (slider) => {
         let timeout;
         let mouseOver = false;
@@ -57,11 +49,11 @@ export default function HeroSlider({ products = [] }) {
           clearTimeout(timeout);
         }
 
-        function next() {
+        function run() {
           clear();
-          if (!mouseOver) {
+          if (!mouseOver && slider) {
             timeout = setTimeout(() => {
-              slider.next();
+              if (slider?.next) slider.next();
             }, 3000);
           }
         }
@@ -73,14 +65,18 @@ export default function HeroSlider({ products = [] }) {
           });
           slider.container.addEventListener("mouseout", () => {
             mouseOver = false;
-            next();
+            run();
           });
-          next();
+          run();
+        });
+
+        slider.on("destroyed", () => {
+          clear();
         });
 
         slider.on("dragStarted", clear);
-        slider.on("animationEnded", next);
-        slider.on("updated", next);
+        slider.on("animationEnded", run);
+        slider.on("updated", run);
       },
     ]
   );
@@ -89,31 +85,25 @@ export default function HeroSlider({ products = [] }) {
     <div key={sliderKey} className="relative w-full mx-auto max-w-xl md:max-w-full">
       <div
         ref={sliderRef}
-        className="keen-slider aspect-[4/5] sm:aspect-[16/9] rounded-2xl overflow-hidden ring-1 ring-gray-200 shadow"
+        className="keen-slider aspect-[4/5] sm:aspect-[16/9] rounded-2xl overflow-hidden shadow ring-1 ring-gray-200"
       >
         {slides.map((s, idx) => (
-          <div key={idx} className="keen-slider__slide w-full !min-w-full relative">
-            <img
-              src={s.imageUrl}
-              alt={s.title}
-              className="w-full h-full object-cover"
-              loading={idx === 0 ? "eager" : "lazy"}
-            />
+          <div key={idx} className="keen-slider__slide !min-w-full relative">
+            <img src={s.imageUrl} className="w-full h-full object-cover" />
 
-            <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black/70 via-black/30 to-transparent">
-              <span className="inline-block text-xs font-semibold px-3 py-1 rounded-full bg-white/10 border border-white/20 text-white uppercase tracking-wide">
+            <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black/70 via-black/20 to-transparent">
+              <span className="inline-block text-xs font-semibold px-3 py-1 bg-white/20 border border-white/30 text-white rounded-full">
                 Latest Arrivals
               </span>
 
-              <h3 className="mt-2 text-white font-semibold text-lg drop-shadow">{s.title}</h3>
-
+              <h3 className="mt-2 text-white font-semibold text-lg">{s.title}</h3>
               <p className="text-indigo-100 font-bold">
                 {formatCurrency(s.price, s.currency)}
               </p>
 
               <Link
                 to={`/product/${s.id}`}
-                className="mt-3 inline-flex items-center px-4 py-2 text-sm font-semibold rounded-full bg-white/90 hover:bg-white shadow"
+                className="mt-3 inline-flex bg-white/90 hover:bg-white px-4 py-2 rounded-full text-sm font-semibold shadow"
               >
                 View product
               </Link>
@@ -122,18 +112,16 @@ export default function HeroSlider({ products = [] }) {
         ))}
       </div>
 
-      {/* Left arrow */}
       <button
         onClick={() => instanceRef.current?.prev()}
-        className="absolute left-3 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white shadow rounded-full p-2 ring-1 ring-gray-300"
+        className="absolute left-3 top-1/2 -translate-y-1/2 bg-white/80 p-2 rounded-full shadow ring-1 ring-gray-300"
       >
         ‹
       </button>
 
-      {/* Right arrow */}
       <button
         onClick={() => instanceRef.current?.next()}
-        className="absolute right-3 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white shadow rounded-full p-2 ring-1 ring-gray-300"
+        className="absolute right-3 top-1/2 -translate-y-1/2 bg-white/80 p-2 rounded-full shadow ring-1 ring-gray-300"
       >
         ›
       </button>
@@ -141,13 +129,9 @@ export default function HeroSlider({ products = [] }) {
   );
 }
 
-function formatCurrency(value, currency = "EUR") {
-  try {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency,
-    }).format(value);
-  } catch {
-    return `${value} ${currency}`;
-  }
+function formatCurrency(value, currency) {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency,
+  }).format(value);
 }

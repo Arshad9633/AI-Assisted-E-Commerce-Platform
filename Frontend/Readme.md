@@ -148,6 +148,116 @@ More features like Cart logic, Order flow, and Profile pages can be added anytim
 
 ---
 
+## 📦 Cloudinary Integration
+
+### ✅ What Cloudinary Does
+
+Cloudinary is used to: - Upload product images securely. - Store them in
+a dedicated folder structure (`ecommerce/products`). - Automatically
+generate a `secure_url` that is saved and displayed in the app.
+
+### ✅ Backend Components Used
+
+#### `CloudinaryConfig.java`
+
+Initializes Cloudinary with: - cloud_name\
+- api_key\
+- api_secret
+
+Loaded either from: - `application.properties` - or environment
+variables (Docker compatible)
+
+#### `ImageUploadService.java`
+
+Handles: - Validation of file type & size - Upload to Cloudinary via the
+SDK - Returning the uploaded image URL
+
+#### `AdminUploadController.java`
+
+Exposes:
+
+    POST /api/admin/upload/image
+
+Accepts: - multipart/form-data - only image files - max size = 10 MB
+
+Returns:
+
+``` json
+{ "url": "https://res.cloudinary.com/xxx/...jpg" }
+```
+
+------------------------------------------------------------------------
+
+## ⚙️ How Image Upload Works (Step-by-Step)
+
+1.  Admin selects a product image.
+
+2.  Frontend sends the file to:
+
+        POST /api/admin/upload/image
+
+3.  Controller validates the file.
+
+4.  File is passed to `ImageUploadService`.
+
+5.  Cloudinary returns a `secure_url`.
+
+6.  URL is stored in the database as part of the product.
+
+7.  Public pages display images directly from Cloudinary CDN.
+
+------------------------------------------------------------------------
+
+## 🖼 Homepage Update -- Dynamic Hero Slider
+
+### What's New
+
+#### ⭐ **HeroSlider now displays the latest 4 products**
+
+-   Automatically updates when new products are added.
+-   Always shows one slide at a time (mobile + desktop).
+-   Fully responsive.
+-   Smooth autoplay + arrow controls.
+-   Reinitializes cleanly whenever product data changes.
+
+#### ⭐ Dynamic slides include:
+
+-   Product image (from Cloudinary)
+-   Title
+-   Price
+-   "Latest Arrivals" badge
+-   Link to product page
+
+#### ⭐ Improved Mobile Support
+
+-   Slide width issues fixed
+-   Tailwind overrides corrected
+-   Always one slide per view
+-   Clean layout and readable captions
+
+------------------------------------------------------------------------
+
+## 📱 Frontend Enhancements
+
+### HeroSlider.jsx
+
+-   Uses Keen Slider with autoplay
+-   Re-mounts using a `sliderKey` when data updates
+-   Handles both desktop & mobile layouts
+-   Ensures correct aspect ratio across devices
+
+### PublicHome.jsx
+
+-   Fetches latest products using:
+
+    ``` js
+    useProducts({ page: 0, limit: 12, sort: "createdAt:desc" })
+    ```
+
+-   Passes first 4 products to HeroSlider
+
+-   Clean featured product grid
+
 ## 📄 License
 This project is free to use for learning and development.
 
