@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import axios from "axios";
+import Navbar from "./Navbar";
+import { Link } from "react-router-dom";
+
 
 export default function ProductListPage() {
   const { gender, categorySlug } = useParams();
@@ -63,6 +66,7 @@ export default function ProductListPage() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-6">
+      <Navbar />
       <h1 className="text-2xl font-semibold mb-4">
         {gender ? gender.toUpperCase() : ""} — {categoryName}
       </h1>
@@ -76,7 +80,11 @@ export default function ProductListPage() {
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
           {products.map((p) => (
-            <div key={p.id} className="border rounded-lg p-3 shadow-sm">
+            <Link
+              to={`/product/${p.slug}`}
+              key={p.id}
+              className="border rounded-lg p-3 shadow-sm hover:shadow-md transition block"
+            >
               <img
                 src={p.images?.[0]?.url ?? p.images?.[0]}
                 alt={p.title}
@@ -87,7 +95,7 @@ export default function ProductListPage() {
                 {p.currency ?? "$"}
                 {p.price}
               </p>
-            </div>
+            </Link>
           ))}
         </div>
       )}

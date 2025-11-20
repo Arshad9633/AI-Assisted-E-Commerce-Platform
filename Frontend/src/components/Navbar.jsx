@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { useCart } from "../context/CartContext";
 import { ChevronDown, ShoppingCart } from "lucide-react";
 import axios from "axios";
 
 export default function Navbar() {
   const { name, email, isAuthenticated, logout } = useAuth();
+  const { cartItems } = useCart();
   const navigate = useNavigate();
 
   const [scrolled, setScrolled] = useState(false);
@@ -18,25 +20,27 @@ export default function Navbar() {
   const menCategories = categories.filter((c) => c.gender === "MEN");
   const womenCategories = categories.filter((c) => c.gender === "WOMEN");
 
+  // Cart count
+  const cartCount = cartItems.reduce(
+    (sum, item) => sum + (item.quantity || 0),
+    0
+  );
+
   const displayName =
     name?.toUpperCase() || (email ? email.split("@")[0].toUpperCase() : "");
 
-  // Fetch categories for navbar
+  // Fetch categories
   useEffect(() => {
-  axios
-    .get("/api/catalog/categories")
-    .then((res) => {
-      console.log("CATEGORIES:", res.data);
-      setCategories(res.data);
-    })
-    .catch((err) => {
-      console.error("CATEGORY ERROR:", err);
-      setCategories([]); // Prevent crash
-    });
-}, []);
+    axios
+      .get("/api/catalog/categories")
+      .then((res) => setCategories(res.data))
+      .catch((err) => {
+        console.error("CATEGORY ERROR:", err);
+        setCategories([]);
+      });
+  }, []);
 
-
-  // Detect scroll for navbar background
+  // Scroll detection
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 6);
     window.addEventListener("scroll", onScroll);
@@ -60,7 +64,6 @@ export default function Navbar() {
     setOpenWomen(false);
   };
 
-  // Convert category to URL slug
   const toSlug = (name) => name.toLowerCase().replace(/\s+/g, "-");
 
   return (
@@ -71,13 +74,10 @@ export default function Navbar() {
           <Link
             to="/"
             onClick={closeAllMenus}
-            className="
-              text-3xl font-serif tracking-tight
+            className="text-3xl font-serif tracking-tight
               bg-gradient-to-r from-indigo-700 to-purple-700
-              bg-clip-text text-transparent
-              transition-all duration-300
-              hover:scale-105 hover:opacity-90
-            "
+              bg-clip-text text-transparent transition-all duration-300
+              hover:scale-105 hover:opacity-90"
           >
             B & M
           </Link>
@@ -99,7 +99,7 @@ export default function Navbar() {
 
               {openMen && (
                 <div className="absolute top-full mt-3 w-64 p-4 rounded-2xl bg-white/80 backdrop-blur-xl shadow-xl border border-white/40 z-[999]">
-                  <h3 className="px-2 pb-2 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                  <h3 className="px-2 pb-2 text-xs font-semibold text-gray-500 uppercase">
                     Men's Categories
                   </h3>
 
@@ -133,8 +133,8 @@ export default function Navbar() {
 
               {openWomen && (
                 <div className="absolute top-full mt-3 w-64 p-4 rounded-2xl bg-white/80 backdrop-blur-xl shadow-xl border border-white/40 z-[999]">
-                  <h3 className="px-2 pb-2 text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                    Women’s Categories
+                  <h3 className="px-2 pb-2 text-xs font-semibold text-gray-500 uppercase">
+                    Women's Categories
                   </h3>
 
                   <div className="space-y-1">
@@ -156,10 +156,18 @@ export default function Navbar() {
             {/* Cart */}
             <Link
               to="/cart"
-              className="flex items-center gap-2 text-gray-800 hover:text-indigo-600"
+              className="relative flex items-center gap-2 text-gray-800 hover:text-indigo-600"
               onClick={closeAllMenus}
             >
-              <ShoppingCart className="h-5 w-5" /> Cart
+              <ShoppingCart className="h-5 w-5" />
+
+              {cartCount > 0 && (
+                <span className="absolute -top-2 -right-3 rounded-full bg-indigo-600 text-white text-xs px-2 py-0.5">
+                  {cartCount}
+                </span>
+              )}
+
+              Cart
             </Link>
 
             {/* Auth */}
@@ -199,7 +207,7 @@ export default function Navbar() {
             )}
           </div>
 
-          {/* Mobile Toggle Button */}
+          {/* Mobile Toggle */}
           <button
             className="md:hidden p-2 rounded-md hover:bg-gray-100 text-gray-700"
             onClick={() => setOpenMobile((v) => !v)}
@@ -210,7 +218,7 @@ export default function Navbar() {
           </button>
         </nav>
 
-        {/* Mobile Menu */}
+        {/* MOBILE MENU */}
         {openMobile && (
           <div className="md:hidden border-t border-gray-200 bg-white/90 backdrop-blur pb-3">
             <div className="pt-2 space-y-1">
@@ -277,17 +285,24 @@ export default function Navbar() {
                 </div>
               )}
 
-              {/* Cart */}
+              {/* CART (Mobile) */}
               <Link
                 to="/cart"
                 onClick={closeAllMenus}
-                className="flex items-center gap-2 px-3 py-2 text-sm text-gray-800 hover:bg-gray-50"
+                className="flex items-center gap-2 px-3 py-2 text-sm text-gray-800 hover:bg-gray-50 relative"
               >
                 <ShoppingCart className="h-5 w-5" />
+
+                {cartCount > 0 && (
+                  <span className="absolute left-6 top-1 rounded-full bg-indigo-600 text-white text-xs px-2 py-0.5">
+                    {cartCount}
+                  </span>
+                )}
+
                 Cart
               </Link>
 
-              {/* Auth */}
+              {/* AUTH */}
               {!isAuthenticated ? (
                 <div className="flex gap-2 px-3 pt-2">
                   <Link
