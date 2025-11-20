@@ -5,15 +5,16 @@ export default function RoleProtectedRoute({ allowedRoles = [], children }) {
   const { isAuthenticated, hasAnyRole } = useAuth();
   const location = useLocation();
 
+  // Not logged in → redirect to login
   if (!isAuthenticated) {
     return <Navigate to="/signin" replace state={{ from: location }} />;
   }
 
+  // Logged in but does NOT have required roles
   if (!hasAnyRole(allowedRoles)) {
-    // Non-admin users should be sent back home
     return <Navigate to="/" replace />;
   }
 
-  // Allow nested routes
+  // All OK → allow access
   return children ?? <Outlet />;
 }

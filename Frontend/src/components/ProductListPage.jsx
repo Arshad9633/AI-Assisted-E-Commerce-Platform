@@ -1,9 +1,7 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, Link } from "react-router-dom";
 import axios from "axios";
 import Navbar from "./Navbar";
-import { Link } from "react-router-dom";
-
 
 export default function ProductListPage() {
   const { gender, categorySlug } = useParams();
@@ -12,14 +10,11 @@ export default function ProductListPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // Convert slug back to normal text e.g. "women-bags" -> "Women Bags"
+  // Convert slug back to readable text: "women-bags" -> "Women Bags"
   const toTitleCase = (text) =>
-    text
-      ? text.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
-      : "";
+    text ? text.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) : "";
 
   useEffect(() => {
-    // guard: ensure params exist
     if (!gender || !categorySlug) {
       setProducts([]);
       setCategoryName(toTitleCase(categorySlug));
@@ -29,12 +24,10 @@ export default function ProductListPage() {
     const humanCategory = toTitleCase(categorySlug);
     setCategoryName(humanCategory);
 
-    // Prepare params: send categorySlug explicitly (backend expects categorySlug)
-    // Also include fallback "category" to be compatible with older backend endpoints.
+    // Backend expects: category=<Name>
     const params = {
-      gender: gender.toUpperCase(), // MEN / WOMEN
-      categorySlug: categorySlug,   // primary param expected by backend
-      // category: humanCategory,    // optional fallback if backend expects "category"
+      gender: gender.toUpperCase(),
+      category: humanCategory,
     };
 
     setLoading(true);
@@ -43,16 +36,15 @@ export default function ProductListPage() {
     axios
       .get("/api/products/filter", { params })
       .then((res) => {
-        // expecting an array of products
         setProducts(Array.isArray(res.data) ? res.data : []);
       })
       .catch((err) => {
-        // better error logging to inspect HTTP status/body
         console.error(
           "PRODUCT FETCH ERROR:",
           err?.response?.status,
           err?.response?.data ?? err?.message
         );
+
         setProducts([]);
         setError(
           err?.response?.data?.message ??
@@ -67,6 +59,7 @@ export default function ProductListPage() {
   return (
     <div className="max-w-6xl mx-auto px-4 py-6">
       <Navbar />
+
       <h1 className="text-2xl font-semibold mb-4">
         {gender ? gender.toUpperCase() : ""} — {categoryName}
       </h1>

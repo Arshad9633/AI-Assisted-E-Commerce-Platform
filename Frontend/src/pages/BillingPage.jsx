@@ -1,8 +1,10 @@
+// src/pages/BillingPage.jsx
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import Navbar from "../components/Navbar";
 import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
-import Navbar from "../components/Navbar";
+import http from "../lib/http";
 import toast from "react-hot-toast";
 
 export default function BillingPage() {
@@ -11,24 +13,25 @@ export default function BillingPage() {
   const navigate = useNavigate();
 
   const total = cartItems.reduce(
-    (sum, item) => sum + item.price * item.quantity,
+    (sum, item) => sum + (item.price || 0) * (item.quantity || 0),
     0
   );
 
-  // Redirect if not logged in
+  // If user somehow reaches /billing without auth, bounce them to signin
   useEffect(() => {
     if (!isAuthenticated) {
-      navigate("/signin", { state: { redirectTo: "/billing" } });
+      navigate("/signin", { replace: true, state: { redirectTo: "/billing" } });
     }
   }, [isAuthenticated, navigate]);
 
-  // Redirect if no items in cart
+  // If cart is empty, send them back to cart
   useEffect(() => {
     if (cartItems.length === 0) {
-      navigate("/cart");
+      navigate("/cart", { replace: true });
     }
   }, [cartItems, navigate]);
 
+  const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState({
     fullName: name || "",
     email: email || "",
@@ -40,25 +43,58 @@ export default function BillingPage() {
   });
 
   const onChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
+    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
-  const handlePlaceOrder = () => {
-    // Simple validation
-    for (const key in form) {
-      if (!form[key]) {
-        toast.error("Please fill all fields.");
+  const handlePlaceOrder = async () => {
+    if (cartItems.length === 0) {
+      toast.error("Your cart is empty.");
+      return;
+    }
+
+    // Simple required field check
+    for (const [key, value] of Object.entries(form)) {
+      if (!value || String(value).trim() === "") {
+        toast.error("Please fill all billing fields.");
         return;
       }
     }
 
-    toast.success("Order placed successfully!");
+    const payload = {
+      fullName: form.fullName,
+      email: form.email,
+      phone: form.phone,
+      address: form.address,
+      city: form.city,
+      postalCode: form.postalCode,
+      country: form.country,
+      items: cartItems.map((item) => ({
+        productId: item.id,
+        title: item.title,
+        image: item.image,
+        price: item.price,
+        quantity: item.quantity,
+      })),
+    };
 
-    // Clear cart after successful order
-    clearCart();
+    try {
+      setSubmitting(true);
+      const res = await http.post("/orders", payload);
+      console.log("ORDER CREATED:", res.data);
 
-    // Optional redirect to order success page
-    navigate("/order-success");
+      toast.success("Order placed successfully!");
+      clearCart();
+      navigate("/order-success");
+    } catch (err) {
+      console.error("PLACE ORDER ERROR", err);
+      const msg =
+        err?.response?.data?.message ||
+        err?.response?.data?.error ||
+        "Failed to place order.";
+      toast.error(msg);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -66,7 +102,9 @@ export default function BillingPage() {
       <Navbar />
 
       <div className="max-w-6xl mx-auto mt-28 px-4 pb-16">
-        <h1 className="text-3xl font-extrabold text-gray-900">Billing Details</h1>
+        <h1 className="text-3xl font-extrabold text-gray-900">
+          Billing Details
+        </h1>
         <p className="text-gray-600 mt-2">Complete your order below.</p>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-10 mt-10">
@@ -131,7 +169,7 @@ export default function BillingPage() {
           <div className="bg-white p-6 rounded-xl shadow h-fit">
             <h2 className="text-xl font-semibold mb-4">Order Summary</h2>
 
-            <div className="space-y-3">
+            <div className="space-y-3 max-h-64 overflow-y-auto pr-1">
               {cartItems.map((item) => (
                 <div
                   key={item.id}
@@ -144,7 +182,7 @@ export default function BillingPage() {
                     </p>
                   </div>
                   <p className="font-semibold text-indigo-600">
-                    €{(item.price * item.quantity).toFixed(2)}
+                    €{((item.price || 0) * (item.quantity || 0)).toFixed(2)}
                   </p>
                 </div>
               ))}
@@ -156,10 +194,17 @@ export default function BillingPage() {
             </div>
 
             <button
-              className="w-full mt-6 rounded-full px-6 py-3 text-white font-semibold bg-gradient-to-r from-indigo-600 to-purple-600 hover:opacity-90 shadow"
+              className={`w-full mt-6 rounded-full px-6 py-3 text-white font-semibold
+                bg-gradient-to-r from-indigo-600 to-purple-600 shadow
+                ${
+                  submitting
+                    ? "opacity-60 cursor-not-allowed"
+                    : "hover:opacity-90"
+                }`}
               onClick={handlePlaceOrder}
+              disabled={submitting}
             >
-              Place Order
+              {submitting ? "Placing order..." : "Place Order"}
             </button>
           </div>
         </div>
@@ -169,7 +214,14 @@ export default function BillingPage() {
 }
 
 /* Reusable Input Component */
-function InputField({ label, name, value, onChange, type = "text", className }) {
+function InputField({
+  label,
+  name,
+  value,
+  onChange,
+  type = "text",
+  className = "",
+}) {
   return (
     <div className={className}>
       <label className="block text-gray-700 text-sm font-medium mb-1">

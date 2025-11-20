@@ -61,24 +61,27 @@ export default function SignIn() {
       });
 
       // Store session
-      const session = login(data);
+     // Store authenticated session
+    const session = login(data);
 
-      if (session?.token) {
-        http.defaults.headers.common.Authorization = `Bearer ${session.token}`;
-      }
+    // set axios default header for authenticated requests
+    if (session.token) {
+      http.defaults.headers.common.Authorization = `Bearer ${session.token}`;
+    }
 
-      toast.success("Signed in successfully!");
 
-      const from = location.state?.from?.pathname;
-      const isAdmin = session.roles?.includes("ADMIN");
+    toast.success("Signed in successfully!");
 
-      if (isAdmin) {
-        navigate(ADMIN_BASE, { replace: true });
-      } else {
-        navigate(from && !from.startsWith(ADMIN_BASE) ? from : "/", {
-          replace: true,
-        });
-      }
+    const redirectTo = location.state?.redirectTo;
+
+    if (session.roles?.includes("ADMIN")) {
+      navigate(ADMIN_BASE, { replace: true });
+    } else if (redirectTo) {
+      navigate(redirectTo, { replace: true });
+    } else {
+      navigate("/", { replace: true });
+    }
+
     } catch (err) {
       const status = err?.response?.status;
       const msg =

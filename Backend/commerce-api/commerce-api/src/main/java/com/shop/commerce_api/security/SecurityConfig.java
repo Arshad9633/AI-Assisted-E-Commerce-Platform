@@ -49,6 +49,9 @@ public class SecurityConfig {
                         // Allow Spring error page (avoid 403 when an exception forwards to /error)
                         .requestMatchers("/error", "/error/**").permitAll()
 
+                        // Orders – must be authenticated
+                        .requestMatchers("/api/orders/**").authenticated()
+
                         // Three Pages:
                         .requestMatchers("/home").permitAll()
                         .requestMatchers("/home/user").hasAnyRole("USER", "ADMIN")

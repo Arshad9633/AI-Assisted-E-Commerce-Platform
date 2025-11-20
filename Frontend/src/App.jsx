@@ -15,11 +15,13 @@ import AdminHome from "./pages/admin/AdminHome";
 import AdminUsers from "./pages/admin/AdminUsers";
 import AdminCatalog from "./pages/admin/AdminCatalog";  
 import AdminProductList from "./pages/admin/AdminProductList";
+import AdminOrdersPage from "./pages/admin/AdminOrderPage";
 
 import ProductListPage from "./components/ProductListPage";
 import ProductPage from "./components/ProductPage";
 
 import BillingPage from "./pages/BillingPage";
+import OrderSuccessPage from "./pages/OrderSuccessPage";
 
 import { ADMIN_BASE } from "./config/routes";
 
@@ -56,6 +58,10 @@ export default function App() {
 
         {/* Billing Page */}
         <Route path="/billing" element={<BillingPage />} />
+        
+        {/* Order Success Page */}
+        <Route path="/billing" element={<BillingPage />} />
+        <Route path="/order-success" element={<OrderSuccessPage />} />
 
 
         {/* Admin */}
@@ -71,6 +77,8 @@ export default function App() {
           <Route path="users" element={<AdminUsers />} />
           <Route path="catalog" element={<AdminCatalog />} />
           <Route path="products" element={<AdminProductList />} />
+          <Route path="orders" element={<AdminOrdersPage />} />
+
         </Route>
         {/* ProducList */}
           <Route path="/products/:gender/:categorySlug" element={<ProductListPage />} />

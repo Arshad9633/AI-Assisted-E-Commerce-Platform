@@ -90,6 +90,14 @@ export default function AdminNavBar() {
             >
               Products
             </NavLink>
+            <NavLink
+              to={`${ADMIN_BASE}/orders`}
+              className={({ isActive }) => 
+                `${baseStyle} ${isActive ? activeStyle : inactiveStyle}`
+              }
+            >
+              Orders
+            </NavLink>
 
             <NavLink
               to={`${ADMIN_BASE}/settings`}
@@ -158,6 +166,15 @@ export default function AdminNavBar() {
             >
               Products
             </NavLink>
+            <NavLink
+              to={`${ADMIN_BASE}/orders`}
+              className={({ isActive }) =>
+                `block ${baseStyle} ${isActive ? activeStyle : inactiveStyle}`
+              }
+            >
+              Orders
+            </NavLink>
+
 
             <NavLink
               to={`${ADMIN_BASE}/settings`}
