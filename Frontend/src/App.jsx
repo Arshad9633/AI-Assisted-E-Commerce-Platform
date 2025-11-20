@@ -16,6 +16,8 @@ import AdminUsers from "./pages/admin/AdminUsers";
 import AdminCatalog from "./pages/admin/AdminCatalog";  
 import AdminProductList from "./pages/admin/AdminProductList";
 
+import ProductListPage from "./components/ProductListPage";
+
 import { ADMIN_BASE } from "./config/routes";
 
 export default function App() {
@@ -63,7 +65,10 @@ export default function App() {
           <Route path="catalog" element={<AdminCatalog />} />
           <Route path="products" element={<AdminProductList />} />
         </Route>
-
+        {/* ProducList */}
+         <Route path="/products/:gender/:categorySlug" element={<ProductListPage />} />
+ 
+         
         {/* Fallback */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

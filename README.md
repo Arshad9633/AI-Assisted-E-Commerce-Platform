@@ -68,3 +68,34 @@ The project runs as three Docker Compose services: **MongoDB**, **Spring Boot ba
 
 All requests flow through `http://localhost:3000/api/...` and reach the backend transparently via Nginx.
 
+
+# 📌 Category-Based Product Filtering
+
+This project implements a clean and structured workflow for loading products based on **gender** and **category** from the navigation menu (e.g., *Men → Shoes*, *Women → Bags*). The logic is cleanly separated into backend and frontend responsibilities.
+
+---
+
+## 🟦 Backend — Product Filtering API
+
+The backend exposes a public endpoint:
+
+```
+GET /api/products/filter?gender=MEN&categorySlug=shoes
+```
+
+### How it works:
+
+1. **Gender** is validated and converted into a `Gender` enum (`MEN` or `WOMEN`).
+2. The `categorySlug` (e.g., `"shoes"`) is converted into a readable category name.
+3. The backend searches MongoDB for a matching category using:
+   - case‑insensitive name matching  
+   - required gender match
+4. If the category exists, products are fetched with:
+   ```
+   findByCategoryAndStatus(categoryId, "PUBLISHED")
+   ```
+5. The result is mapped into `ProductResponse` and returned to the frontend.
+
+This ensures a clean and reliable connection between categories and their products while keeping the API fully public.
+
+---

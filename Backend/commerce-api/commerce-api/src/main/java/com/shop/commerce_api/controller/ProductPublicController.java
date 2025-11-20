@@ -1,6 +1,5 @@
 package com.shop.commerce_api.controller;
 
-import com.shop.commerce_api.dto.CategoryResponse;
 import com.shop.commerce_api.dto.ProductImageDto;
 import com.shop.commerce_api.dto.ProductResponse;
 import com.shop.commerce_api.entity.Category;
@@ -14,7 +13,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/products")
@@ -29,15 +27,9 @@ public class ProductPublicController {
         this.categoryRepo = categoryRepo;
     }
 
-    /**
-     * LIST PRODUCTS (Public)
-     * Supports:
-     *  - search
-     *  - gender (MEN / WOMEN)
-     *  - categoryId
-     *  - pagination
-     *  - sorting (createdAt:desc)
-     */
+    // ----------------------------
+    // 1. Public Product List
+    // ----------------------------
     @GetMapping
     public Page<ProductResponse> list(
             @RequestParam(defaultValue = "") String search,
@@ -49,28 +41,21 @@ public class ProductPublicController {
     ) {
         PageRequest pageable = buildPageable(page, limit, sort);
 
-        // ---- SEARCH ----
-        Page<Product> products;
+        Page<Product> products = search.isBlank()
+                ? productRepo.findByStatus("PUBLISHED", pageable)
+                : productRepo.searchPublished(search.trim(), pageable);
 
-        if (search != null && !search.isBlank()) {
-            products = productRepo.searchPublished(search.trim(), pageable);
-        } else {
-            products = productRepo.findByStatus("PUBLISHED", pageable);
-        }
-
-        // ---- FILTER: Gender & Category ----
         List<Product> filtered = products.stream()
                 .filter(p -> matchCategoryGender(p, gender, categoryId))
-                .collect(Collectors.toList());
+                .toList();
 
-        Page<Product> finalPage = new PageImpl<>(filtered, pageable, filtered.size());
-
-        return finalPage.map(this::toProductResponse);
+        return new PageImpl<>(filtered, pageable, filtered.size())
+                .map(this::toProductResponse);
     }
 
-    /**
-     * GET PRODUCT BY SLUG
-     */
+    // ----------------------------
+    // 2. Product Details by Slug
+    // ----------------------------
     @GetMapping("/{slug}")
     public ResponseEntity<ProductResponse> get(@PathVariable String slug) {
         return productRepo.findBySlugAndStatus(slug, "PUBLISHED")
@@ -78,53 +63,81 @@ public class ProductPublicController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    // ----------------- Helpers -----------------
-
-    private boolean matchCategoryGender(Product p, Gender gender, String categoryId) {
-
-        if (categoryId == null && gender == null) {
-            return true;
+    // ----------------------------
+    // 3. Filter Products (Navbar / Storefront)
+    // ----------------------------
+    @GetMapping("/filter")
+    public ResponseEntity<List<ProductResponse>> filterProducts(
+            @RequestParam String gender,
+            @RequestParam String category
+    ) {
+        Gender genderEnum;
+        try {
+            genderEnum = Gender.valueOf(gender.toUpperCase());
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().build();
         }
 
-        Optional<Category> categoryOpt = (p.getCategory() == null)
-                ? Optional.empty()
-                : categoryRepo.findById(p.getCategory());
+        List<Category> categories = categoryRepo.searchCategoryByNameContains(category, genderEnum);
+        if (categories.isEmpty()) return ResponseEntity.ok(List.of());
 
-        if (categoryOpt.isEmpty()) return false;
+        Category cat = categories.get(0);
 
-        Category cat = categoryOpt.get();
+        List<Product> products =
+                productRepo.findByCategoryAndStatus(cat.getId(), "PUBLISHED");
 
-        if (categoryId != null && !categoryId.equals(cat.getId())) return false;
-        if (gender != null && gender != cat.getGender()) return false;
+        List<ProductResponse> response =
+                products.stream().map(this::toProductResponse).toList();
+
+        return ResponseEntity.ok(response);
+    }
+
+    // ----------------------------
+    // Helpers
+    // ----------------------------
+    private boolean matchCategoryGender(Product p, Gender gender, String categoryId) {
+        if (categoryId == null && gender == null) return true;
+
+        Optional<Category> catOpt =
+                (p.getCategory() == null) ? Optional.empty() : categoryRepo.findById(p.getCategory());
+
+        if (catOpt.isEmpty()) return false;
+
+        Category cat = catOpt.get();
+
+        if (categoryId != null && !cat.getId().equals(categoryId)) return false;
+        if (gender != null && cat.getGender() != gender) return false;
 
         return true;
     }
 
     private PageRequest buildPageable(int page, int limit, String sort) {
         try {
-            String[] parts = sort.split(":", 2);
+            String[] parts = sort.split(":");
             String field = parts[0];
-            Sort.Direction dir = (parts.length > 1 && "asc".equalsIgnoreCase(parts[1]))
-                    ? Sort.Direction.ASC : Sort.Direction.DESC;
+            Sort.Direction direction =
+                    (parts.length > 1 && "asc".equalsIgnoreCase(parts[1]))
+                            ? Sort.Direction.ASC
+                            : Sort.Direction.DESC;
 
-            return PageRequest.of(page, limit, Sort.by(dir, field));
+            return PageRequest.of(page, limit, Sort.by(direction, field));
         } catch (Exception e) {
             return PageRequest.of(page, limit, Sort.by(Sort.Direction.DESC, "createdAt"));
         }
     }
 
     private ProductResponse toProductResponse(Product p) {
-        Optional<Category> categoryOpt =
-                (p.getCategory() == null) ? Optional.empty() : categoryRepo.findById(p.getCategory());
+        Optional<Category> catOpt =
+                (p.getCategory() == null)
+                        ? Optional.empty()
+                        : categoryRepo.findById(p.getCategory());
 
-        String catId = categoryOpt.map(Category::getId).orElse(null);
-        String catName = categoryOpt.map(Category::getName).orElse(null);
-        Gender catGender = categoryOpt.map(Category::getGender).orElse(null);
-
-        List<ProductImageDto> images = p.getImages() == null ? List.of()
-                : p.getImages().stream()
-                .map(img -> new ProductImageDto(img.getUrl(), img.getAlt()))
-                .collect(Collectors.toList());
+        List<ProductImageDto> images =
+                (p.getImages() == null)
+                        ? List.of()
+                        : p.getImages().stream()
+                        .map(img -> new ProductImageDto(img.getUrl(), img.getAlt()))
+                        .toList();
 
         return ProductResponse.builder()
                 .id(p.getId())
@@ -140,9 +153,9 @@ public class ProductPublicController {
                 .tags(p.getTags())
                 .createdAt(p.getCreatedAt())
                 .updatedAt(p.getUpdatedAt())
-                .categoryId(catId)
-                .categoryName(catName)
-                .categoryGender(catGender)
+                .categoryId(catOpt.map(Category::getId).orElse(null))
+                .categoryName(catOpt.map(Category::getName).orElse(null))
+                .categoryGender(catOpt.map(Category::getGender).orElse(null))
                 .build();
     }
 }

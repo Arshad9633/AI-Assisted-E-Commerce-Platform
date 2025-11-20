@@ -1,18 +1,23 @@
 package com.shop.commerce_api.repository;
 
-
 import com.shop.commerce_api.entity.Category;
 import com.shop.commerce_api.entity.Gender;
 import org.springframework.data.mongodb.repository.MongoRepository;
+import org.springframework.data.mongodb.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
 
 @Repository
-public interface CategoryRepository extends MongoRepository <Category, String>{
+public interface CategoryRepository extends MongoRepository<Category, String> {
+
     List<Category> findByGender(Gender gender);
 
     boolean existsByNameIgnoreCaseAndGender(String name, Gender gender);
 
     Category findByNameIgnoreCaseAndGender(String name, Gender gender);
+
+    // NEW → supports partial matching of category slug/name
+    @Query("{ 'gender': ?1, 'name': { $regex: ?0, $options: 'i' } }")
+    List<Category> searchCategoryByNameContains(String name, Gender gender);
 }

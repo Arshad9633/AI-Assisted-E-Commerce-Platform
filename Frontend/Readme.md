@@ -257,6 +257,41 @@ Returns:
 -   Passes first 4 products to HeroSlider
 
 -   Clean featured product grid
+## 🟩 Frontend — Slug Routing + Product Fetch
+
+The React frontend generates URLs like:
+
+```
+/products/men/shoes
+/products/women/bags
+```
+
+### How it works:
+
+1. `gender` and `categorySlug` are extracted using `useParams()`.
+2. The slug (`"shoes"`) is converted back to `"Shoes"` for readability.
+3. Axios calls:
+   ```js
+   axios.get("/api/products/filter", {
+     params: { gender, categorySlug }
+   })
+   ```
+4. Products returned from the backend are displayed in a responsive grid layout.
+5. If the category has no products, a `"No products found"` message is shown.
+
+This structure allows dynamic storefront loading and clean navigation from the navbar to product listing pages.
+
+---
+
+## ✔ Result
+
+Users can click any category (e.g., *Women → Bags*) and instantly load all matching published products, thanks to a clean separation of concerns:
+
+- **Backend** resolves categories and fetches products.
+- **Frontend** formats URLs, handles slugs, and displays results.
+
+This provides a smooth and scalable category‑based browsing experience.
+
 
 ## 📄 License
 This project is free to use for learning and development.
