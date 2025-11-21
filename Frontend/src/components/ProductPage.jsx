@@ -1,10 +1,13 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
 import Navbar from "./Navbar";
-import { ShoppingCart, Star, Plus, Minus } from "lucide-react";
+import { ShoppingCart, Star, Plus, Minus, Heart, Truck } from "lucide-react";
 import { useCart } from "../context/CartContext";
 import toast from "react-hot-toast";
+
+// Redesigned Product Page — modern, classy, Tailwind-first styling.
+// Drop this single-file component into your React app (Tailwind CSS + lucide-react required).
 
 export default function ProductPage() {
   const { slug } = useParams();
@@ -14,28 +17,22 @@ export default function ProductPage() {
   const [product, setProduct] = useState(null);
   const [selectedImage, setSelectedImage] = useState(null);
   const [qty, setQty] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState("details");
 
   useEffect(() => {
     window.scrollTo(0, 0);
-
+    setLoading(true);
     axios
       .get(`/api/products/${slug}`)
       .then((res) => {
         setProduct(res.data);
-        setSelectedImage(res.data.images?.[0]?.url);
+        setSelectedImage(res.data.images?.[0]?.url ?? null);
       })
-      .catch(() => setProduct(null));
+      .catch(() => setProduct(null))
+      .finally(() => setLoading(false));
   }, [slug]);
 
-  if (!product) {
-    return (
-      <div className="pt-20 text-center text-gray-600">
-        Loading product…
-      </div>
-    );
-  }
-
-  /* ADD TO CART HANDLER */
   const handleAddToCart = () => {
     const item = {
       id: product.id,
@@ -48,172 +45,274 @@ export default function ProductPage() {
     };
 
     addToCart(item);
-    toast.success("Added to cart!");
-
+    toast.success("Added to cart");
     navigate("/cart");
   };
+
+  if (loading) {
+    return (
+      <div className="pt-28 max-w-6xl mx-auto px-6">
+        <div className="animate-pulse space-y-6">
+          <div className="h-96 bg-gray-100 rounded-3xl" />
+          <div className="h-6 w-3/5 bg-gray-100 rounded" />
+          <div className="h-4 w-1/3 bg-gray-100 rounded" />
+        </div>
+      </div>
+    );
+  }
+
+  if (!product) {
+    return (
+      <div className="pt-28 text-center text-gray-600">Product not found.</div>
+    );
+  }
 
   return (
     <>
       <Navbar />
 
-      <div className="pt-28 max-w-7xl mx-auto px-6">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-start">
+      <main className="pt-24 pb-16 bg-[#e6f0ff]">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
 
-          {/* LEFT IMAGE */}
-          <div>
-            <img
-              src={selectedImage}
-              alt={product.title}
-              className="rounded-2xl shadow-xl w-full object-cover"
-            />
+            {/* IMAGE GALLERY */}
+            <section className="lg:col-span-7">
+              <div className="rounded-3xl overflow-hidden shadow-2xl bg-white">
+                <div className="relative">
+                  <img
+                    src={selectedImage}
+                    alt={product.title}
+                    className="w-full h-[560px] object-cover"
+                    loading="lazy"
+                  />
 
-            <div className="flex gap-4 mt-6 overflow-x-auto pb-2">
-              {product.images?.map((img, idx) => (
-                <img
-                  key={idx}
-                  src={img.url}
-                  onClick={() => setSelectedImage(img.url)}
-                  className={`w-24 h-24 rounded-xl object-cover cursor-pointer border ${
-                    selectedImage === img.url
-                      ? "ring-2 ring-indigo-600"
-                      : "hover:ring-2 hover:ring-gray-300"
-                  }`}
-                />
-              ))}
-            </div>
-          </div>
+                  {/* overlay badge */}
+                  <div className="absolute top-6 left-6 flex gap-3">
+                    {product.badges?.map((b, i) => (
+                      <span
+                        key={i}
+                        className="bg-indigo-600/90 text-white text-xs font-medium px-3 py-1 rounded-full shadow"
+                      >
+                        {b}
+                      </span>
+                    ))}
+                  </div>
 
-          {/* RIGHT DETAILS */}
-          <div>
-            <h1 className="text-4xl font-semibold text-gray-900">
-              {product.title}
-            </h1>
-
-            <p className="mt-4 text-gray-600 text-lg leading-relaxed">
-              {product.description}
-            </p>
-
-            {/* PRICE */}
-            <p className="mt-8 text-4xl font-bold text-gray-900">
-              {product.currency ?? "€"}
-              {product.price}
-            </p>
-
-            {/* QUANTITY SELECTOR */}
-            <div className="mt-6 flex items-center gap-4">
-              <div className="flex items-center gap-3 border rounded-full px-4 py-2">
-                <button
-                  onClick={() => setQty(Math.max(1, qty - 1))}
-                  className="p-2 hover:bg-gray-100 rounded-full"
-                >
-                  <Minus className="h-4 w-4" />
-                </button>
-
-                <span className="text-lg font-semibold">{qty}</span>
-
-                <button
-                  onClick={() => setQty(qty + 1)}
-                  className="p-2 hover:bg-gray-100 rounded-full"
-                >
-                  <Plus className="h-4 w-4" />
-                </button>
+                  {/* subtle zoom on hover */}
+                  <style>{`.product-img-transition img { transition: transform 450ms cubic-bezier(.2,.9,.3,1); } .product-img-transition img:hover { transform: scale(1.02); }`}</style>
+                </div>
               </div>
 
-              {/* ADD TO CART BUTTON */}
-              <button
-                onClick={handleAddToCart}
-                className="flex items-center gap-3 bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-4 rounded-full text-lg font-medium shadow-md transition"
-              >
-                <ShoppingCart className="h-5 w-5" />
-                Add to Cart
-              </button>
-            </div>
+              <div className="mt-5 flex items-center gap-3 overflow-x-auto pb-2">
+                {product.images?.map((img, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => setSelectedImage(img.url)}
+                    className={`flex-shrink-0 w-28 h-20 rounded-xl overflow-hidden border transition-all focus:outline-none ${
+                      selectedImage === img.url
+                        ? "ring-2 ring-indigo-300 border-transparent"
+                        : "border-gray-100 hover:scale-105"
+                    }`}
+                    aria-label={`Select image ${idx + 1}`}>
+                    <img src={img.url} alt={`${product.title} ${idx + 1}`} className="w-full h-full object-cover" />
+                  </button>
+                ))}
+              </div>
+            </section>
 
-            {/* FEATURES */}
-            <ul className="mt-10 space-y-3 text-gray-700 text-lg">
-              <li>✔ High-quality material</li>
-              <li>✔ Premium design</li>
-              <li>✔ Fast delivery</li>
-            </ul>
+            {/* DETAILS */}
+            <aside className="lg:col-span-5">
+              <div className="sticky top-28">
+                <h1 className="text-3xl sm:text-4xl font-extrabold text-gray-900">{product.title}</h1>
 
-            {/* ICON ROW */}
-            <div className="mt-12 flex gap-12 text-gray-700">
-              <div className="text-center">
-                <div className="text-3xl">🚚</div>
-                <p>Fast Shipping</p>
+                <div className="mt-3 flex items-center gap-3">
+                  <div className="inline-flex items-center gap-2 text-yellow-400">
+                    <Star className="w-5 h-5" />
+                    <span className="font-medium">{product.rating ?? "4.8"}</span>
+                  </div>
+                  <div className="text-sm text-gray-500">• {product.reviewsCount ?? 128} reviews</div>
+                </div>
+
+                <p className="mt-4 text-gray-700 text-lg leading-relaxed">{product.description}</p>
+
+                <div className="mt-6 flex items-end justify-between gap-6">
+                  <div>
+                    <div className="text-sm text-gray-500">Price</div>
+                    <div className="text-3xl font-extrabold text-gray-900">{product.currency ?? "€"}{product.price}</div>
+                    {product.oldPrice && (
+                      <div className="text-sm text-gray-500 line-through">{product.currency ?? "€"}{product.oldPrice}</div>
+                    )}
+                  </div>
+
+                  <div className="flex flex-col gap-2 text-right">
+                    <div className="text-xs text-gray-500">Availability</div>
+                    <div className={`text-sm font-medium ${product.stock > 0 ? 'text-green-600' : 'text-red-500'}`}>
+                      {product.stock > 0 ? 'In stock' : 'Out of stock'}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Options: Color, Qty */}
+                <div className="mt-6 border rounded-2xl bg-white p-4 shadow-sm">
+                  <div className="grid grid-cols-1 gap-4">
+
+                    {/* Colors */}
+                    {product.colors && (
+                      <div>
+                        <div className="text-sm text-gray-500 mb-2">Color</div>
+                        <div className="flex items-center gap-3">
+                          {product.colors.map((c) => (
+                            <button
+                              key={c.name}
+                              className="w-10 h-10 rounded-full border-2 flex items-center justify-center focus:outline-none"
+                              style={{ backgroundColor: c.value }}
+                              aria-label={c.name}
+                              onClick={() => {
+                                setSelectedImage(c.image ?? selectedImage);
+                              }}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Qty + Buttons */}
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-3 border rounded-full px-3 py-1">
+                        <button
+                          onClick={() => setQty(Math.max(1, qty - 1))}
+                          className="p-2 rounded-full hover:bg-gray-100"
+                          aria-label="Decrease quantity"
+                        >
+                          <Minus className="w-4 h-4" />
+                        </button>
+                        <div className="w-12 text-center font-medium">{qty}</div>
+                        <button
+                          onClick={() => setQty((q) => q + 1)}
+                          className="p-2 rounded-full hover:bg-gray-100"
+                          aria-label="Increase quantity"
+                        >
+                          <Plus className="w-4 h-4" />
+                        </button>
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                        <button
+                          onClick={handleAddToCart}
+                          className="inline-flex items-center gap-3 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-3 rounded-2xl font-semibold shadow-lg transition"
+                        >
+                          <ShoppingCart className="w-5 h-5" /> Add to cart
+                        </button>
+
+                        <button
+                          onClick={() => toast('Added to wishlist')}
+                          className="p-3 rounded-xl border hover:bg-gray-50"
+                          aria-label="Add to wishlist"
+                        >
+                          <Heart className="w-5 h-5 text-gray-600" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Benefits row */}
+                <div className="mt-6 grid grid-cols-3 gap-4 text-sm text-gray-600">
+                  <div className="flex items-start gap-3">
+                    <Truck className="w-5 h-5 text-indigo-600 mt-1" />
+                    <div>
+                      <div className="font-medium text-gray-900">Fast shipping</div>
+                      <div className="text-xs">Delivered in 2–4 days</div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3">
+                    <div className="w-5 h-5 mt-1">🔒</div>
+                    <div>
+                      <div className="font-medium text-gray-900">Secure payment</div>
+                      <div className="text-xs">Encrypted checkout</div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3">
+                    <div className="w-5 h-5 mt-1">✅</div>
+                    <div>
+                      <div className="font-medium text-gray-900">Quality assured</div>
+                      <div className="text-xs">2-year warranty</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Tabs: Details / Specs / Reviews */}
+                <div className="mt-8 bg-white border rounded-2xl p-4">
+                  <div className="flex gap-3">
+                    <TabButton active={activeTab === 'details'} onClick={() => setActiveTab('details')}>Description</TabButton>
+                    <TabButton active={activeTab === 'specs'} onClick={() => setActiveTab('specs')}>Specs</TabButton>
+                    <TabButton active={activeTab === 'reviews'} onClick={() => setActiveTab('reviews')}>Reviews</TabButton>
+                  </div>
+
+                  <div className="mt-4">
+                    {activeTab === 'details' && (
+                      <div className="prose max-w-none text-gray-700">{product.longDescription ?? product.description}</div>
+                    )}
+
+                    {activeTab === 'specs' && (
+                      <div className="grid grid-cols-2 gap-3 text-sm text-gray-700">
+                        {product.specs && Object.entries(product.specs).map(([k, v]) => (
+                          <div key={k} className="flex justify-between border-b py-2">
+                            <span className="text-gray-500">{k}</span>
+                            <span className="font-medium">{v}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {activeTab === 'reviews' && (
+                      <div className="space-y-4">
+                        {(product.reviews || []).length === 0 && (
+                          <div className="text-gray-500">No reviews yet.</div>
+                        )}
+
+                        {(product.reviews || []).map((r, i) => (
+                          <div key={i} className="bg-gray-50 rounded-lg p-4">
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="font-medium">{r.name}</div>
+                              <div className="text-sm text-gray-500">{r.date}</div>
+                            </div>
+                            <div className="flex items-center gap-2 mb-2">{Array.from({length: 5}).map((_, idx) => (
+                              <Star key={idx} className={`w-4 h-4 ${idx < r.rating ? 'text-yellow-400' : 'text-gray-200'}`} />
+                            ))}</div>
+                            <div className="text-sm text-gray-700">{r.comment}</div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
               </div>
-              <div className="text-center">
-                <div className="text-3xl">📦</div>
-                <p>Secure Packaging</p>
-              </div>
-              <div className="text-center">
-                <div className="text-3xl">⭐</div>
-                <p>5-Star Quality</p>
-              </div>
-            </div>
+            </aside>
+
           </div>
         </div>
-
-        {/* REVIEWS */}
-        <div className="mt-20 max-w-4xl">
-          <h2 className="text-2xl font-semibold text-gray-900 mb-6">
-            Customer Reviews
-          </h2>
-
-          <Review
-            name="Sophia L."
-            rating={5}
-            text="Amazing quality and perfect fit. Looks even better in person!"
-          />
-          <Review
-            name="Mark T."
-            rating={4}
-            text="Stylish jacket and fast delivery. Highly recommended!"
-          />
-          <Review
-            name="Emma R."
-            rating={5}
-            text="Bought this as a gift. He loved it. Superb material!"
-          />
-        </div>
-      </div>
-
-      {/* FOOTER */}
-      <footer className="py-10 border-t border-gray-200 bg-white/60 mt-20">
+      </main>
+    
+      <footer className="py-10 border-t border-gray-200 bg-white/60">
         <div className="max-w-7xl mx-auto px-4 text-sm text-gray-600">
-          © {new Date().getFullYear()} 🛒 E-Commerce
+          © {new Date().getFullYear()} • E-Commerce
         </div>
       </footer>
     </>
   );
 }
 
-/* --- REVIEW COMPONENTS --- */
-
-function Review({ name, rating, text }) {
+function TabButton({ children, active, onClick }) {
   return (
-    <div className="bg-white shadow rounded-xl p-6 mb-4">
-      <div className="flex items-center gap-3 mb-2">
-        <strong className="text-gray-900">{name}</strong>
-        <Rating count={rating} />
-      </div>
-      <p className="text-gray-700">{text}</p>
-    </div>
-  );
-}
-
-function Rating({ count }) {
-  return (
-    <div className="flex gap-1">
-      {Array.from({ length: 5 }).map((_, i) => (
-        <Star
-          key={i}
-          className={`w-4 h-4 ${
-            i < count ? "text-yellow-400 fill-yellow-400" : "text-gray-300"
-          }`}
-        />
-      ))}
-    </div>
+    <button
+      onClick={onClick}
+      className={`px-4 py-2 rounded-full text-sm font-medium transition ${active ? 'bg-indigo-600 text-white shadow' : 'text-gray-600 bg-gray-100'}`}
+    >
+      {children}
+    </button>
   );
 }
