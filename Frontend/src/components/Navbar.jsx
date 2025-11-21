@@ -48,7 +48,7 @@ export default function Navbar() {
   const clearAllNotifications = async () => {
     if (!isAuthenticated) return;
     try {
-      await axiosAuth.delete("/notifications"); // -> DELETE /api/notifications
+      await axiosAuth.delete("/notifications/clear"); // -> DELETE /api/notifications
       setNotifications([]);                     // clear UI immediately
     } catch (err) {
       console.error("CLEAR NOTIFICATIONS ERROR:", err);

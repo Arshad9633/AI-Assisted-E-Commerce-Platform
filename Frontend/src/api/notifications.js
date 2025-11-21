@@ -7,3 +7,7 @@ export async function fetchNotifications() {
 export async function markNotificationsRead() {
   return axiosAuth.post("/notifications/read");
 }
+
+export async function clearNotifications() {
+  return axiosAuth.delete("/notifications/clear"); 
+}

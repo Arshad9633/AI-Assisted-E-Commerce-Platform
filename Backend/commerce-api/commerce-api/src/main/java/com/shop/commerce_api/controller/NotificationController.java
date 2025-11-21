@@ -33,7 +33,7 @@ public class NotificationController {
         return "OK";
     }
 
-    @DeleteMapping
+    @DeleteMapping("/clear")
     public String clearAll(@AuthenticationPrincipal(expression = "username") String email) {
         notificationRepository.deleteByUserEmail(email);
         return "OK";
