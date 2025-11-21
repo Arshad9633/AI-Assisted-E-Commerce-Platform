@@ -7,7 +7,9 @@ const CartContext = createContext(null);
 export function CartProvider({ children }) {
   const { isAuthenticated } = useAuth();
 
-  // Initialize from localStorage
+  /* -------------------------------------------------------
+     0) INITIALIZE CART (localStorage only)
+  --------------------------------------------------------- */
   const [cartItems, setCartItems] = useState(() => {
     try {
       return JSON.parse(localStorage.getItem("cart_items") || "[]");
@@ -17,7 +19,7 @@ export function CartProvider({ children }) {
   });
 
   /* -------------------------------------------------------
-     HELPER: Save cart everywhere (state + localStorage + DB)
+     Save to state + localStorage + DB (if logged in)
   --------------------------------------------------------- */
   const syncEverywhere = async (items) => {
     setCartItems(items);
@@ -27,71 +29,69 @@ export function CartProvider({ children }) {
       try {
         await axiosAuth.put("/cart", { items });
       } catch (err) {
-        console.error("Cart DB update failed:", err);
+        console.error("❌ Cart DB update failed:", err);
       }
     }
   };
 
   /* -------------------------------------------------------
-     1) MERGE GUEST CART → DB CART ON LOGIN
+     1) MERGE GUEST CART → DB CART AFTER LOGIN
   --------------------------------------------------------- */
   useEffect(() => {
-  if (!isAuthenticated) return;
+    if (!isAuthenticated) return;
 
-  async function loadAndMergeCart() {
-    try {
-      const guestCart =
-        JSON.parse(localStorage.getItem("cart_items") || "[]") || [];
+    async function mergeCarts() {
+      try {
+        const guestCart =
+          JSON.parse(localStorage.getItem("cart_items") || "[]") || [];
 
-      // Load DB cart
-      const { data } = await axiosAuth.get("/cart");
-      const dbItems = data.items || [];
+        // Load DB cart
+        const { data } = await axiosAuth.get("/cart");
+        const dbItems = data.items || [];
 
-      let merged = [...dbItems];
+        // Merge rule: match by productId
+        const merged = [...dbItems];
 
-      // Prevent merge-doubling by merging only once
-      if (guestCart.length > 0) {
         guestCart.forEach((g) => {
-          const found = merged.find((i) => i.productId === g.productId);
-          if (found) {
-            found.quantity += g.quantity;
+          const existing = merged.find((i) => i.productId === g.productId);
+          if (existing) {
+            existing.quantity += g.quantity; // combine quantities
           } else {
             merged.push(g);
           }
         });
+
+        await syncEverywhere(merged);
+
+        // Clear guest data so it doesn't re-merge
+        localStorage.setItem("cart_items", "[]");
+      } catch (err) {
+        console.error("❌ Merge cart failed:", err);
       }
-
-      // Save merged cart everywhere
-      await syncEverywhere(merged);
-
-      // Reset guest cart so it doesn't re-merge on refresh
-      localStorage.setItem("cart_items", JSON.stringify([]));
-
-    } catch (err) {
-      console.error("Cart merge on login failed:", err);
     }
-  }
 
-  loadAndMergeCart();
-}, [isAuthenticated]);
-
+    mergeCarts();
+  }, [isAuthenticated]);
 
   /* -------------------------------------------------------
-     2) ADD TO CART
+     2) ADD TO CART (fixed quantity logic)
   --------------------------------------------------------- */
   const addToCart = async (product) => {
     const updated = [...cartItems];
+
+    // Use productId consistently
     const existing = updated.find((i) => i.productId === product.id);
 
     if (existing) {
-      existing.quantity += 1;
+      // Add multiple quantities properly
+      existing.quantity += (product.quantity || 1);
     } else {
       updated.push({
         productId: product.id,
         title: product.title,
-        image: product.image || product.images?.[0] || "",
+        image: product.image,
         price: product.price,
-        quantity: 1,
+        quantity: product.quantity || 1,
       });
     }
 
@@ -107,17 +107,17 @@ export function CartProvider({ children }) {
   };
 
   /* -------------------------------------------------------
-     4) UPDATE QUANTITY
+     4) UPDATE QUANTITY (safe)
   --------------------------------------------------------- */
   const updateQuantity = async (productId, newQty) => {
-    const updated = cartItems.map((item) =>
-      item.productId === productId ? { ...item, quantity: newQty } : item
+    const updated = cartItems.map((i) =>
+      i.productId === productId ? { ...i, quantity: newQty } : i
     );
     await syncEverywhere(updated);
   };
 
   /* -------------------------------------------------------
-     5) CLEAR CART (order placed or user clicks clear)
+     5) CLEAR CART
   --------------------------------------------------------- */
   const clearCart = async () => {
     await syncEverywhere([]);
@@ -126,7 +126,7 @@ export function CartProvider({ children }) {
       try {
         await axiosAuth.delete("/cart");
       } catch (err) {
-        console.error("DB clear failed:", err);
+        console.error("❌ Failed to clear DB cart:", err);
       }
     }
   };

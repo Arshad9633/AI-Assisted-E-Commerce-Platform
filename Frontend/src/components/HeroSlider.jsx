@@ -12,6 +12,7 @@ export default function HeroSlider({ products = [] }) {
       .slice(0, 4)
       .map((p) => ({
         id: p.id,
+        slug: p.slug,           // <-- FIX ADDED
         title: p.title,
         price: p.discountPrice ?? p.price,
         currency: p.currency || "EUR",
@@ -19,7 +20,6 @@ export default function HeroSlider({ products = [] }) {
       }));
   }, [products]);
 
-  // Remount slider when product count changes
   useEffect(() => {
     setSliderKey((k) => k + 1);
   }, [slides.length]);
@@ -32,32 +32,20 @@ export default function HeroSlider({ products = [] }) {
         perView: 1,
         spacing: 0,
       },
-      breakpoints: {
-        "(min-width: 640px)": { slides: { perView: 1 } },
-        "(min-width: 1024px)": { slides: { perView: 1 } },
-      },
       drag: true,
       rubberband: true,
     },
     [
-      // SAFE AUTOPLAY PLUGIN
       (slider) => {
         let timeout;
         let mouseOver = false;
-
-        function clear() {
-          clearTimeout(timeout);
-        }
-
-        function run() {
+        const clear = () => clearTimeout(timeout);
+        const run = () => {
           clear();
           if (!mouseOver && slider) {
-            timeout = setTimeout(() => {
-              if (slider?.next) slider.next();
-            }, 3000);
+            timeout = setTimeout(() => slider?.next?.(), 3000);
           }
-        }
-
+        };
         slider.on("created", () => {
           slider.container.addEventListener("mouseover", () => {
             mouseOver = true;
@@ -69,11 +57,7 @@ export default function HeroSlider({ products = [] }) {
           });
           run();
         });
-
-        slider.on("destroyed", () => {
-          clear();
-        });
-
+        slider.on("destroyed", clear);
         slider.on("dragStarted", clear);
         slider.on("animationEnded", run);
         slider.on("updated", run);
@@ -102,7 +86,7 @@ export default function HeroSlider({ products = [] }) {
               </p>
 
               <Link
-                to={`/product/${s.id}`}
+                to={`/product/${s.slug}`}    // <-- FIXED
                 className="mt-3 inline-flex bg-white/90 hover:bg-white px-4 py-2 rounded-full text-sm font-semibold shadow"
               >
                 View product

@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import HeroSlider from "../components/HeroSlider";
 import { useProducts } from "../hooks/useProducts";
 import { ShoppingCart, Truck, ShieldCheck } from "lucide-react";
+import FeaturedProducts from "../components/FeaturedProducts";
 
 export default function PublicHome() {
   const { data, loading, error } = useProducts({
@@ -11,22 +12,20 @@ export default function PublicHome() {
     sort: "createdAt:desc",
   });
 
-  // Latest products (for cards + slider)
-  const rawProducts = data?.content || [];
-
-  // For grid cards
+  const rawProducts = (data?.content || []).slice(0, 7);
+  // Map only latest 7 products for featured section
   const products = rawProducts.map((p) => ({
     id: p.id,
+    slug: p.slug,
     title: p.title,
     description: p.description,
     price: p.discountPrice ?? p.price,
     currency: p.currency || "EUR",
     image: p.images?.[0]?.url || "/placeholder.png",
     badge: p.discountPrice ? "Sale" : undefined,
-    maxQty: p.stock ?? 99,
   }));
 
-  // For hero slider: pass original backend objects
+  // For Hero Slider
   const latestForSlider = rawProducts.slice(0, 4);
 
   return (
@@ -43,9 +42,9 @@ export default function PublicHome() {
                 we’ll bring them to you fast.
               </h1>
 
-              <p className="mt-4 text-gray-600 text-base md:text-lg leading-relaxed">
-                Browse a curated feed of products. Sign in for personalized
-                picks and a smoother checkout.
+              <p className="mt-4 text-gray-600 text-base md:text-lg">
+                Browse a curated feed of products. Sign in for personalized picks
+                and a smoother checkout.
               </p>
 
               <ul className="mt-5 space-y-2 text-sm text-gray-700">
@@ -83,13 +82,12 @@ export default function PublicHome() {
               </p>
             </div>
 
-            {/* Updated hero slider with latest products */}
             <HeroSlider products={latestForSlider} />
           </div>
         </div>
       </section>
 
-      {/* Featured products */}
+      {/* Featured Products */}
       <section className="py-14">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-6">
@@ -97,41 +95,15 @@ export default function PublicHome() {
           </h2>
 
           {loading && <p className="text-gray-500">Loading…</p>}
-
           {error && <p className="text-red-600">{error}</p>}
 
-          {!loading && !error && products.length === 0 && (
-            <p className="text-gray-600">No products yet.</p>
-          )}
-
-          {!loading && !error && products.length > 0 && (
-            <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {products.map((p) => (
-                <li
-                  key={p.id}
-                  className="bg-white p-4 rounded-xl shadow ring-1 ring-gray-200 flex flex-col"
-                >
-                  <img
-                    src={p.image}
-                    alt={p.title}
-                    className="h-40 w-full object-cover rounded-md"
-                  />
-                  <h3 className="mt-2 font-semibold">{p.title}</h3>
-                  {p.description && (
-                    <p className="text-sm text-gray-600 line-clamp-2">
-                      {p.description}
-                    </p>
-                  )}
-                  <span className="mt-1 block font-bold">
-                    {formatCurrency(p.price, p.currency)}
-                  </span>
-                </li>
-              ))}
-            </ul>
+          {!loading && !error && (
+            <FeaturedProducts products={products} />
           )}
         </div>
       </section>
 
+      {/* Footer */}
       <footer className="py-10 border-t border-gray-200 bg-white/60">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-sm text-gray-600">
           © {new Date().getFullYear()} 🛒 E-Commerce
@@ -139,15 +111,4 @@ export default function PublicHome() {
       </footer>
     </div>
   );
-}
-
-function formatCurrency(value, currency = "EUR", locale = navigator.language || "en-US") {
-  if (value == null) return "";
-  try {
-    return new Intl.NumberFormat(locale, { style: "currency", currency }).format(
-      value
-    );
-  } catch {
-    return `${value} ${currency}`;
-  }
 }
