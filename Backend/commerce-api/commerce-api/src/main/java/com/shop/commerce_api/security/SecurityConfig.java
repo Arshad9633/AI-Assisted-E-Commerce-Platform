@@ -52,6 +52,9 @@ public class SecurityConfig {
                         // Orders – must be authenticated
                         .requestMatchers("/api/orders/**").authenticated()
 
+                        // Cart - must be authenticated
+                        .requestMatchers("/api/cart/**").authenticated()
+
                         // Three Pages:
                         .requestMatchers("/home").permitAll()
                         .requestMatchers("/home/user").hasAnyRole("USER", "ADMIN")
