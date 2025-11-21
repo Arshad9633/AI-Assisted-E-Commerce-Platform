@@ -4,6 +4,7 @@ import HeroSlider from "../components/HeroSlider";
 import { useProducts } from "../hooks/useProducts";
 import { ShoppingCart, Truck, ShieldCheck } from "lucide-react";
 import FeaturedProducts from "../components/FeaturedProducts";
+import { useAuth } from "../context/AuthContext";
 
 export default function PublicHome() {
   const { data, loading, error } = useProducts({
@@ -11,6 +12,8 @@ export default function PublicHome() {
     limit: 12,
     sort: "createdAt:desc",
   });
+
+  const { isAuthenticated } = useAuth();
 
   const rawProducts = (data?.content || []).slice(0, 7);
   // Map only latest 7 products for featured section
@@ -62,24 +65,28 @@ export default function PublicHome() {
                 </li>
               </ul>
 
-              <div className="mt-6 flex gap-3">
-                <Link
-                  to="/signup"
-                  className="inline-flex items-center rounded-full px-5 py-2.5 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 shadow-sm"
-                >
-                  Get Started
-                </Link>
-                <Link
-                  to="/signin"
-                  className="inline-flex items-center rounded-full px-5 py-2.5 text-sm font-semibold text-indigo-700 bg-white/70 hover:bg-white shadow-sm ring-1 ring-inset ring-indigo-200"
-                >
-                  Sign In
-                </Link>
-              </div>
+             {!isAuthenticated && (
+              <>
+                <div className="mt-6 flex gap-3">
+                  <Link
+                    to="/signup"
+                    className="inline-flex items-center rounded-full px-5 py-2.5 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 shadow-sm"
+                  >
+                    Get Started
+                  </Link>
+                  <Link
+                    to="/signin"
+                    className="inline-flex items-center rounded-full px-5 py-2.5 text-sm font-semibold text-indigo-700 bg-white/70 hover:bg-white shadow-sm ring-1 ring-inset ring-indigo-200"
+                  >
+                    Sign In
+                  </Link>
+                </div>
 
-              <p className="mt-3 text-xs text-gray-500">
-                No account yet? Create one in seconds.
-              </p>
+                <p className="mt-3 text-xs text-gray-500">
+                  No account yet? Create one in seconds.
+                </p>
+              </>
+            )}
             </div>
 
             <HeroSlider products={latestForSlider} />
