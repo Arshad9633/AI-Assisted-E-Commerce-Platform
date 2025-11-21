@@ -32,4 +32,11 @@ public class NotificationController {
         notificationRepository.saveAll(list);
         return "OK";
     }
+
+    @DeleteMapping
+    public String clearAll(@AuthenticationPrincipal(expression = "username") String email) {
+        notificationRepository.deleteByUserEmail(email);
+        return "OK";
+    }
+
 }

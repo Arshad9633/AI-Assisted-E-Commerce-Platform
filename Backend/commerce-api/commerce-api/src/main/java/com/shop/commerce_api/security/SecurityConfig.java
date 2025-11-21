@@ -59,6 +59,9 @@ public class SecurityConfig {
                         // Cart
                         .requestMatchers("/api/cart/**").authenticated()
 
+
+                        //Notification
+                        .requestMatchers("/api/notifications/**").authenticated()
                         // Sample routes
                         .requestMatchers("/home").permitAll()
                         .requestMatchers("/home/user").hasAnyRole("USER", "ADMIN")
