@@ -11,6 +11,11 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import java.util.Arrays;
 
 import static org.springframework.security.config.Customizer.withDefaults;
 
@@ -28,42 +33,41 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                .cors(withDefaults())
+                .cors(cors -> cors.configurationSource(corsConfigurationSource())) 
                 .csrf(csrf -> csrf.disable())
                 .formLogin(f -> f.disable())
                 .httpBasic(b -> b.disable())
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        // CORS preflight
+
+                        // Allow CORS preflight
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
-                        // Auth routes open
+                        // Auth
                         .requestMatchers("/api/auth/**").permitAll()
 
-                        // Public product endpoints (storefront)
+                        // Public GET endpoints
                         .requestMatchers(HttpMethod.GET, "/api/products/**").permitAll()
-
-                        // Public Categories endpoints(storefront)
                         .requestMatchers(HttpMethod.GET, "/api/catalog/categories").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/catalog/categories/**").permitAll()
-                        // Allow Spring error page (avoid 403 when an exception forwards to /error)
+
                         .requestMatchers("/error", "/error/**").permitAll()
 
-                        // Orders – must be authenticated
+                        // User orders
                         .requestMatchers("/api/orders/**").authenticated()
 
-                        // Cart - must be authenticated
+                        // Cart
                         .requestMatchers("/api/cart/**").authenticated()
 
-                        // Three Pages:
+                        // Sample routes
                         .requestMatchers("/home").permitAll()
                         .requestMatchers("/home/user").hasAnyRole("USER", "ADMIN")
                         .requestMatchers("/home/admin").hasRole("ADMIN")
 
-                        // Admin-only endpoints
+                        // Admin-only
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
 
-                        // Everything else requires auth
+                        // Everything else
                         .anyRequest().authenticated()
                 )
                 .exceptionHandling(ex -> ex
@@ -73,6 +77,22 @@ public class SecurityConfig {
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
+    }
+
+    // ✅ FIXED CORS CONFIGURATION
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration config = new CorsConfiguration();
+
+        config.setAllowedOriginPatterns(Arrays.asList("*")); // or http://localhost:3000
+        config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        config.setAllowedHeaders(Arrays.asList("*"));
+        config.setAllowCredentials(true);
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", config);
+
+        return source;
     }
 
     @Bean
