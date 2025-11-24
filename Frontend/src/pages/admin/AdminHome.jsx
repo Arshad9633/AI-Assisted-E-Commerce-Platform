@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Line } from "react-chartjs-2";
 import {
   Chart as ChartJS,
@@ -8,17 +9,78 @@ import {
   Tooltip,
   Legend,
 } from "chart.js";
+import toast from "react-hot-toast";
+import {
+  getDashboardKpis,
+  getDashboardSalesWeek,
+  getDashboardRecentOrders,
+  getDashboardAlerts,
+} from "../../api/adminDashboard";
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend);
 
 export default function AdminHome() {
-  // sample demo data
+  /* --------------------------
+       Dashboard State
+  --------------------------- */
+  const [kpis, setKpis] = useState(null);
+  const [salesData, setSalesData] = useState(null);
+  const [recentOrders, setRecentOrders] = useState([]);
+  const [alerts, setAlerts] = useState([]);
+
+  const [loading, setLoading] = useState(true);
+
+  /* --------------------------
+       LOAD DASHBOARD DATA
+  --------------------------- */
+  const loadDashboard = async () => {
+    try {
+      const [kpiRes, salesRes, ordersRes, alertsRes] = await Promise.all([
+        getDashboardKpis(),
+        getDashboardSalesWeek(),
+        getDashboardRecentOrders(),
+        getDashboardAlerts(),
+      ]);
+
+      setKpis(kpiRes);
+      setSalesData(salesRes);
+      setRecentOrders(ordersRes);
+      setAlerts(alertsRes);
+      setLoading(false);
+
+    } catch (error) {
+      toast.error("Failed to load dashboard data");
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadDashboard();
+
+    // Auto-refresh every 30 seconds
+    const interval = setInterval(loadDashboard, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  if (loading || !kpis) {
+    return (
+      <div className="p-6">
+        <h1 className="text-2xl font-bold mb-4">Dashboard Overview</h1>
+        <p className="text-gray-500 text-sm">Loading dashboard…</p>
+      </div>
+    );
+  }
+
+  /* --------------------------
+       Prepare Chart.js Data
+  --------------------------- */
+
   const revenueData = {
-    labels: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+    labels: salesData.labels,
     datasets: [
       {
         label: "Revenue (€)",
-        data: [540, 610, 700, 820, 750, 900, 1000],
+        data: salesData.values,
         borderColor: "rgb(99,102,241)",
         backgroundColor: "rgba(99,102,241,0.2)",
         tension: 0.4,
@@ -31,7 +93,7 @@ export default function AdminHome() {
     datasets: [
       {
         label: "API Latency (ms)",
-        data: [120, 160, 140, 180, 200, 150],
+        data: [120, 160, 140, 180, 200, 150], // optional real-time logic later
         borderColor: "rgb(239,68,68)",
         backgroundColor: "rgba(239,68,68,0.2)",
         tension: 0.4,
@@ -46,38 +108,46 @@ export default function AdminHome() {
 
       {/* KPI CARDS */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        
+
         <div className="bg-white p-5 rounded-xl shadow">
           <p className="text-gray-500 text-sm">Revenue Today</p>
-          <h2 className="text-2xl font-semibold mt-1">€1,240</h2>
+          <h2 className="text-2xl font-semibold mt-1">
+            €{kpis.revenueToday.toFixed(2)}
+          </h2>
         </div>
 
         <div className="bg-white p-5 rounded-xl shadow">
           <p className="text-gray-500 text-sm">Total Orders</p>
-          <h2 className="text-2xl font-semibold mt-1">58</h2>
+          <h2 className="text-2xl font-semibold mt-1">
+            {kpis.totalOrders}
+          </h2>
         </div>
 
         <div className="bg-white p-5 rounded-xl shadow">
-          <p className="text-gray-500 text-sm">Active Users</p>
-          <h2 className="text-2xl font-semibold mt-1">14</h2>
+          <p className="text-gray-500 text-sm">Active Users (30 min)</p>
+          <h2 className="text-2xl font-semibold mt-1">
+            {kpis.activeUsers}
+          </h2>
         </div>
 
         <div className="bg-white p-5 rounded-xl shadow">
           <p className="text-gray-500 text-sm">Low Stock Items</p>
-          <h2 className="text-2xl font-semibold mt-1">3</h2>
+          <h2 className="text-2xl font-semibold mt-1">
+            {kpis.lowStockCount}
+          </h2>
         </div>
       </div>
 
       {/* GRAPHS SECTION */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        
+
         {/* Sales Trend */}
         <div className="bg-white p-6 rounded-xl shadow">
           <h2 className="font-semibold mb-4">Sales This Week</h2>
           <Line data={revenueData} />
         </div>
 
-        {/* API Performance */}
+        {/* API Latency */}
         <div className="bg-white p-6 rounded-xl shadow">
           <h2 className="font-semibold mb-4">API Latency</h2>
           <Line data={apiLatencyData} />
@@ -86,7 +156,7 @@ export default function AdminHome() {
 
       {/* TABLES SECTION */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        
+
         {/* Recent Orders */}
         <div className="bg-white p-6 rounded-xl shadow">
           <h2 className="font-semibold mb-4">Recent Orders</h2>
@@ -102,46 +172,59 @@ export default function AdminHome() {
             </thead>
 
             <tbody>
-              <tr className="border-b">
-                <td>#1234</td>
-                <td>John Doe</td>
-                <td>€89.99</td>
-                <td className="text-green-600 font-medium">Completed</td>
-              </tr>
+              {recentOrders.map((o) => (
+                <tr key={o.id} className="border-b">
+                  <td>#{o.id}</td>
+                  <td>{o.userName}</td>
+                  <td>€{o.amount.toFixed(2)}</td>
+                  <td
+                    className={
+                      o.status === "COMPLETED"
+                        ? "text-green-600 font-medium"
+                        : o.status === "PENDING"
+                        ? "text-yellow-600 font-medium"
+                        : "text-red-600 font-medium"
+                    }
+                  >
+                    {o.status}
+                  </td>
+                </tr>
+              ))}
 
-              <tr className="border-b">
-                <td>#1235</td>
-                <td>Sarah Lee</td>
-                <td>€45.50</td>
-                <td className="text-yellow-600 font-medium">Pending</td>
-              </tr>
-
-              <tr>
-                <td>#1236</td>
-                <td>Michael</td>
-                <td>€120.00</td>
-                <td className="text-red-600 font-medium">Failed</td>
-              </tr>
+              {recentOrders.length === 0 && (
+                <tr>
+                  <td colSpan="4" className="py-4 text-gray-500 text-center">
+                    No recent orders.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
 
-        {/* System Alerts */}
+        {/* Alerts */}
         <div className="bg-white p-6 rounded-xl shadow">
           <h2 className="font-semibold mb-4">System Alerts</h2>
 
           <ul className="space-y-3 text-sm text-gray-700">
-            <li className="p-3 rounded-lg bg-red-50 border border-red-200">
-              High API latency detected at 6 PM.
-            </li>
+            {alerts.map((a, i) => (
+              <li
+                key={i}
+                className={`p-3 rounded-lg border ${
+                  a.level === "ERROR"
+                    ? "bg-red-50 border-red-200"
+                    : a.level === "WARNING"
+                    ? "bg-yellow-50 border-yellow-200"
+                    : "bg-blue-50 border-blue-200"
+                }`}
+              >
+                {a.message}
+              </li>
+            ))}
 
-            <li className="p-3 rounded-lg bg-yellow-50 border border-yellow-200">
-              Stock low for “Women Hoodie”.
-            </li>
-
-            <li className="p-3 rounded-lg bg-blue-50 border border-blue-200">
-              New user registered: maria@example.com
-            </li>
+            {alerts.length === 0 && (
+              <li className="text-gray-500">No alerts.</li>
+            )}
           </ul>
         </div>
       </div>

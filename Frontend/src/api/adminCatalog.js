@@ -47,3 +47,5 @@ export async function deleteProduct(id) {
   await http.delete(`/admin/catalog/products/${id}`);
   return true;
 }
+
+

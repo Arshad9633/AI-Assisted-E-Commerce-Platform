@@ -9,12 +9,14 @@ import com.shop.commerce_api.repository.OrderRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.Instant;
 
 @RestController
 @RequestMapping("/api/admin/orders")
+@PreAuthorize("hasRole('ADMIN')")
 public class OrderAdminController {
 
     private final OrderRepository orderRepository;
@@ -52,9 +54,8 @@ public class OrderAdminController {
                     order.setStatus(status);
                     Order saved = orderRepository.save(order);
 
-                    // NEW: create user notification
                     Notification notification = Notification.builder()
-                            .userEmail(order.getEmail()) // Use order's email
+                            .userEmail(order.getEmail())
                             .message("Your order #" + order.getId() + " is now " + status)
                             .read(false)
                             .createdAt(Instant.now())
@@ -65,7 +66,6 @@ public class OrderAdminController {
                 })
                 .orElse(ResponseEntity.notFound().build());
     }
-
 
     private OrderResponse toOrderResponse(Order o) {
         return OrderResponse.builder()
@@ -85,4 +85,3 @@ public class OrderAdminController {
                 .build();
     }
 }
-

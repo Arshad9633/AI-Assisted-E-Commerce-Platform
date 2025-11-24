@@ -6,7 +6,9 @@ import com.shop.commerce_api.dto.OrderResponse;
 import com.shop.commerce_api.entity.Order;
 import com.shop.commerce_api.entity.OrderItem;
 import com.shop.commerce_api.entity.OrderStatus;
+import com.shop.commerce_api.entity.User;
 import com.shop.commerce_api.repository.OrderRepository;
+import com.shop.commerce_api.repository.UserRepository;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -16,15 +18,19 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/orders")
 public class OrderPublicController {
 
     private final OrderRepository orderRepository;
+    private final UserRepository userRepository;
 
-    public OrderPublicController(OrderRepository orderRepository) {
+    public OrderPublicController(OrderRepository orderRepository,
+                                 UserRepository userRepository) {
         this.orderRepository = orderRepository;
+        this.userRepository = userRepository;
     }
 
     // POST /api/orders  -> place order
@@ -33,7 +39,16 @@ public class OrderPublicController {
             Authentication authentication,
             @Valid @RequestBody OrderRequest request
     ) {
-        String userId = authentication != null ? authentication.getName() : null;
+        String userId = null;
+
+        // Resolve logged-in user and store their Mongo _id in the order
+        if (authentication != null) {
+            String email = authentication.getName();  // principal = email (from your JWT setup)
+            Optional<User> userOpt = userRepository.findByEmail(email);
+            if (userOpt.isPresent()) {
+                userId = userOpt.get().getId();
+            }
+        }
 
         List<OrderItem> items = request.getItems().stream()
                 .map(this::toOrderItem)
@@ -44,7 +59,7 @@ public class OrderPublicController {
                 .sum();
 
         Order order = Order.builder()
-                .userId(userId)
+                .userId(userId)                          // ✅ now a real User.id, not email
                 .fullName(request.getFullName())
                 .email(request.getEmail())
                 .phone(request.getPhone())
@@ -54,7 +69,7 @@ public class OrderPublicController {
                 .country(request.getCountry())
                 .items(items)
                 .total(total)
-                .status(OrderStatus.PENDING)
+                .status(OrderStatus.PENDING)             // stays PENDING until admin sets PAID/SHIPPED
                 .createdAt(Instant.now())
                 .build();
 
@@ -69,8 +84,20 @@ public class OrderPublicController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size
     ) {
-        String userId = authentication.getName();
         PageRequest pageable = PageRequest.of(page, size);
+
+        if (authentication == null) {
+            // not logged in -> no user-specific orders
+            return Page.empty(pageable);
+        }
+
+        String email = authentication.getName();
+        Optional<User> userOpt = userRepository.findByEmail(email);
+        if (userOpt.isEmpty()) {
+            return Page.empty(pageable);
+        }
+
+        String userId = userOpt.get().getId();
 
         return orderRepository.findByUserId(userId, pageable)
                 .map(this::toOrderResponse);
