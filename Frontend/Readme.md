@@ -292,6 +292,312 @@ Users can click any category (e.g., *Women → Bags*) and instantly load all mat
 
 This provides a smooth and scalable category‑based browsing experience.
 
+## 2. Frontend: Notifications in Navbar
+
+### 2.1. Axios auth setup
+
+`axiosAuth` is your authenticated HTTP client used by the notification logic:
+
+```js
+// src/api/axiosAuth.js
+import axios from "axios";
+
+const axiosAuth = axios.create({
+  baseURL: "/api",
+});
+
+axiosAuth.interceptors.request.use((config) => {
+  try {
+    const raw = localStorage.getItem("auth_user");
+    const user = raw ? JSON.parse(raw) : null;
+
+    if (user?.token) {
+      config.headers.Authorization = `Bearer ${user.token}`;
+    }
+  } catch (err) {
+    console.error("Failed to parse auth_user:", err);
+  }
+
+  return config;
+});
+
+export default axiosAuth;
+```
+
+Because `baseURL` is `/api`, the calls:
+
+- `axiosAuth.get("/notifications")` → `GET /api/notifications`
+- `axiosAuth.post("/notifications/read")` → `POST /api/notifications/read`
+- `axiosAuth.post("/notifications/clear")` → `POST /api/notifications/clear`
+
+are correctly aligned with the backend.
+
+---
+
+### 2.2. Notification state & API calls in Navbar
+
+In `Navbar.jsx` you hold notification state and functions:
+
+```jsx
+const [notifications, setNotifications] = useState([]);
+const [openNoti, setOpenNoti] = useState(false);
+
+const unreadCount = notifications.filter((n) => !n.read).length;
+
+const fetchNotifications = async () => {
+  if (!isAuthenticated) return;
+  try {
+    const res = await axiosAuth.get("/notifications");
+    const list = Array.isArray(res.data) ? res.data : [];
+    setNotifications(list);
+  } catch (err) {
+    console.error("NOTIFICATION ERROR:", err);
+  }
+};
+
+const markAllRead = async () => {
+  if (!isAuthenticated) return;
+  try {
+    await axiosAuth.post("/notifications/read");
+    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+  } catch (err) {
+    console.error("MARK READ ERROR:", err);
+  }
+};
+
+const clearAllNotifications = async () => {
+  if (!isAuthenticated) return;
+  try {
+    await axiosAuth.post("/notifications/clear");
+    setNotifications([]);
+  } catch (err) {
+    console.error("CLEAR NOTIFICATIONS ERROR:", err);
+  }
+};
+```
+
+#### Polling for new notifications
+
+```jsx
+useEffect(() => {
+  if (!isAuthenticated) {
+    setNotifications([]);
+    return;
+  }
+
+  fetchNotifications();                 // initial fetch
+
+  const interval = setInterval(fetchNotifications, 15000); // every 15s
+  return () => clearInterval(interval);
+}, [isAuthenticated]);
+```
+
+- When the user logs in, notifications are fetched immediately.
+- Then, every 15 seconds, the Navbar will ping `/api/notifications` to get new ones.
+- If the user logs out, notifications are cleared on the frontend.
+
+---
+
+### 2.3. Desktop bell icon & dropdown
+
+In the desktop layout, the notification bell is shown when authenticated:
+
+```jsx
+{isAuthenticated && (
+  <div className="relative">
+    <button
+      onClick={toggleNotifications}
+      className="relative p-1 text-gray-800 hover:text-indigo-600"
+    >
+      <Bell className="h-6 w-6" />
+      {unreadCount > 0 && (
+        <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs px-1.5 py-0.5 rounded-full">
+          {unreadCount}
+        </span>
+      )}
+    </button>
+
+    {openNoti && (
+      <div className="absolute right-0 mt-3 w-80 bg-white/95 backdrop-blur-lg
+                      rounded-2xl shadow-2xl border border-indigo-100 z-[999] p-3">
+        <NotificationPanel
+          notifications={notifications}
+          unreadCount={unreadCount}
+          onMarkAllRead={markAllRead}
+          onClearAll={clearAllNotifications}
+        />
+      </div>
+    )}
+  </div>
+)}
+```
+
+`unreadCount` is used for the red badge on the bell.
+
+---
+
+### 2.4. Mobile bell icon
+
+On mobile (small screens), the bell appears next to the hamburger menu:
+
+```jsx
+<div className="md:hidden flex items-center gap-2">
+  {isAuthenticated && (
+    <div className="relative">
+      <button
+        onClick={toggleNotifications}
+        className="relative p-1 text-gray-800 hover:text-indigo-600"
+      >
+        <Bell className="h-6 w-6" />
+        {unreadCount > 0 && (
+          <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs px-1.5 py-0.5 rounded-full">
+            {unreadCount}
+          </span>
+        )}
+      </button>
+
+      {openNoti && (
+        <div className="absolute right-0 mt-3 w-80 max-w-[90vw] bg-white/95
+                        backdrop-blur-lg rounded-2xl shadow-2xl border border-indigo-100 z-[999] p-3">
+          <NotificationPanel
+            notifications={notifications}
+            unreadCount={unreadCount}
+            onMarkAllRead={markAllRead}
+            onClearAll={clearAllNotifications}
+          />
+        </div>
+      )}
+    </div>
+  )}
+
+  {/* Hamburger */}
+  <button
+    className="p-2 rounded-md hover:bg-gray-100 text-gray-700"
+    onClick={() => {
+      setOpenMobile((v) => !v);
+      setOpenMen(false);
+      setOpenWomen(false);
+    }}
+  >
+    {/* icon */}
+  </button>
+</div>
+```
+
+The same `NotificationPanel` is reused, so desktop and mobile stay consistent.
+
+---
+
+### 2.5. NotificationPanel component (UI)
+
+`NotificationPanel` is a small presentational component that shows:
+
+- Header with title
+- `Mark all read` button (if there are unread notifications)
+- `Clear` button (if there are any notifications)
+- List of notifications with different styling for `read` vs `unread`
+
+```jsx
+function NotificationPanel({
+  notifications,
+  unreadCount,
+  onMarkAllRead,
+  onClearAll,
+}) {
+  return (
+    <>
+      <div className="flex items-center justify-between mb-2">
+        <div>
+          <p className="text-xs font-semibold text-indigo-500 uppercase tracking-wide">
+            Activity
+          </p>
+          <h4 className="text-sm font-bold text-gray-800">Notifications</h4>
+        </div>
+
+        <div className="flex items-center gap-1">
+          {unreadCount > 0 && (
+            <button
+              onClick={onMarkAllRead}
+              className="text-[11px] px-2 py-1 rounded-full bg-indigo-50 text-indigo-600 hover:bg-indigo-100"
+            >
+              Mark all read
+            </button>
+          )}
+          {notifications.length > 0 && (
+            <button
+              onClick={onClearAll}
+              className="text-[11px] px-2 py-1 rounded-full bg-gray-50 text-gray-500 hover:bg-gray-100"
+            >
+              Clear
+            </button>
+          )}
+        </div>
+      </div>
+
+      {notifications.length === 0 && (
+        <p className="text-sm text-gray-500 py-4 text-center">
+          You’re all caught up ✨
+        </p>
+      )}
+
+      <div className="max-h-64 overflow-y-auto space-y-2 mt-1">
+        {notifications.map((n) => (
+          <div
+            key={n.id}
+            className={`flex items-start gap-2 p-3 rounded-xl border text-sm ${
+              n.read
+                ? "bg-gray-50 border-gray-200"
+                : "bg-indigo-50 border-indigo-200"
+            }`}
+          >
+            <div
+              className={`mt-1 h-2 w-2 rounded-full ${
+                n.read ? "bg-gray-300" : "bg-indigo-500"
+              }`}
+            />
+            <div className="flex-1">
+              <p className="text-gray-800">{n.message}</p>
+              <p className="text-[11px] text-gray-500 mt-1 flex items-center gap-1">
+                <Check className="w-3 h-3" />
+                {n.createdAt ? new Date(n.createdAt).toLocaleString() : ""}
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
+```
+
+---
+
+## 3. End-to-end flow
+
+1. **Customer places an order.**  
+   `Order` document is saved with `status = PENDING`.
+
+2. **Admin opens the Admin Orders page** and changes status of an order to `PAID` or `SHIPPED`.  
+   `OrderAdminController.updateStatus(...)`:
+    - Updates the `Order` in MongoDB
+    - Creates a `Notification` with `userEmail`, `message`, `read = false`, `createdAt = now`
+
+3. **Customer is logged in**, Navbar is mounted:
+    - Calls `/api/notifications` using `axiosAuth` to get all notifications for that user.
+    - Shows the bell icon with red unread badge.
+
+4. Customer opens the **notification dropdown**:
+    - Sees latest messages with timestamps.
+
+5. Customer clicks **“Mark all read”**:
+    - Frontend: `POST /api/notifications/read`
+    - Backend: sets `read = true` on all user notifications.
+    - UI updates: all notifications become “read” style, badge count goes to 0.
+
+6. Customer clicks **“Clear”**:
+    - Frontend: `POST /api/notifications/clear`
+    - Backend: `deleteByUserEmail(email)` → removes all notifications for that user.
+    - UI: local `notifications` state resets to `[]`, panel shows “You’re all caught up ✨”.
 
 ## 📄 License
 This project is free to use for learning and development.

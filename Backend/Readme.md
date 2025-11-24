@@ -422,7 +422,187 @@ Benefits:
 - Pagination & sorting
 
 ---
+## 1. Backend: Notifications
 
+### 1.1. Core idea
+
+When an **order status** is changed by an admin (e.g. from `PENDING` to `PAID` or `SHIPPED`), the backend creates a **Notification** document for the corresponding user.  
+On the customer side, authenticated users can:
+
+- Fetch their notifications
+- Mark all as read
+- Clear all notifications
+
+All notification endpoints are **protected** and require a valid JWT token.
+
+---
+
+### 1.2. Notification Entity (MongoDB)
+
+A typical `Notification` entity looks like this (simplified example):
+
+```java
+@Document("notifications")
+public class Notification {
+
+    @Id
+    private String id;
+
+    // The email of the user who should receive this notification
+    private String userEmail;
+
+    // The message shown in the frontend
+    private String message;
+
+    // If the notification has been read in the UI
+    private boolean read;
+
+    // When this notification was created
+    private Instant createdAt;
+}
+```
+
+> Your actual class may contain small variations, but this is the core structure.
+
+---
+
+### 1.3. NotificationRepository
+
+The repository provides query methods used by the controller:
+
+```java
+@Repository
+public interface NotificationRepository extends MongoRepository<Notification, String> {
+
+    // All notifications for a user, newest first
+    List<Notification> findByUserEmailOrderByCreatedAtDesc(String userEmail);
+
+    // Delete all notifications for a user
+    void deleteByUserEmail(String userEmail);
+}
+```
+
+These methods are used to **list**, **update**, and **delete** notifications.
+
+---
+
+### 1.4. NotificationController
+
+The controller exposes **three** main endpoints under `/api/notifications`.
+
+```java
+@RestController
+@RequestMapping("/api/notifications")
+public class NotificationController {
+
+    private final NotificationRepository notificationRepository;
+
+    public NotificationController(NotificationRepository notificationRepository) {
+        this.notificationRepository = notificationRepository;
+    }
+
+    // 1. GET /api/notifications
+    // Return all notifications for the currently authenticated user
+    @GetMapping
+    public List<Notification> getNotifications(
+            @AuthenticationPrincipal(expression = "username") String email) {
+        return notificationRepository.findByUserEmailOrderByCreatedAtDesc(email);
+    }
+
+    // 2. POST /api/notifications/read
+    // Mark all notifications as read for the current user
+    @PostMapping("/read")
+    public String markAllRead(
+            @AuthenticationPrincipal(expression = "username") String email) {
+        List<Notification> list =
+                notificationRepository.findByUserEmailOrderByCreatedAtDesc(email);
+        list.forEach(n -> n.setRead(true));
+        notificationRepository.saveAll(list);
+        return "OK";
+    }
+
+    // 3. POST /api/notifications/clear
+    // Delete all notifications for the current user
+    @PostMapping("/clear")
+    public String clearAll(
+            @AuthenticationPrincipal(expression = "username") String email) {
+        notificationRepository.deleteByUserEmail(email);
+        return "OK";
+    }
+}
+```
+
+#### Notes
+
+- `@AuthenticationPrincipal(expression = "username") String email`  
+  uses the authenticated Spring Security principal (set by the JWT filter) and extracts the `username` (email) of the logged-in user.
+- All operations are **per-user**: every user only sees and modifies their own notifications.
+
+---
+
+### 1.5. SecurityConfig – protecting the endpoints
+
+In `SecurityConfig`, `/api/notifications/**` must be authenticated:
+
+```java
+.authorizeHttpRequests(auth -> auth
+    // ... other rules ...
+
+    // Orders – must be authenticated
+    .requestMatchers("/api/orders/**").authenticated()
+
+    // Cart – must be authenticated
+    .requestMatchers("/api/cart/**").authenticated()
+
+    // Notifications – must be authenticated
+    .requestMatchers("/api/notifications/**").authenticated()
+
+    // Admin-only endpoints
+    .requestMatchers("/api/admin/**").hasRole("ADMIN")
+
+    .anyRequest().authenticated()
+)
+```
+
+This ensures that only logged‑in users (with a valid JWT) can hit `/api/notifications` and its subpaths.
+
+---
+
+### 1.6. Creating Notifications when Order Status changes
+
+In your `OrderAdminController` (admin side), whenever you update the order status, you can create a notification for that order’s user.
+
+Example inside the `updateStatus` method after saving the order:
+
+```java
+@PatchMapping("/{id}/status")
+public ResponseEntity<OrderResponse> updateStatus(
+        @PathVariable String id,
+        @RequestParam OrderStatus status
+) {
+    return orderRepository.findById(id)
+            .map(order -> {
+                order.setStatus(status);
+                Order saved = orderRepository.save(order);
+
+                // Create a notification for this user
+                Notification notification = new Notification();
+                notification.setUserEmail(saved.getEmail()); // or saved.getUserId() -> email via lookup
+                notification.setMessage("Your order #" + saved.getId() +
+                        " status is now " + saved.getStatus());
+                notification.setRead(false);
+                notification.setCreatedAt(Instant.now());
+                notificationRepository.save(notification);
+
+                return ResponseEntity.ok(toOrderResponse(saved));
+            })
+            .orElse(ResponseEntity.notFound().build());
+}
+```
+
+Whenever an admin changes the status via this endpoint, a new notification is stored in MongoDB and picked up by the frontend.
+
+---
 
 
 

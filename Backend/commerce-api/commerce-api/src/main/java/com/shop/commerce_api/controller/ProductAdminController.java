@@ -9,6 +9,9 @@ import com.shop.commerce_api.entity.Product;
 import com.shop.commerce_api.repository.CategoryRepository;
 import com.shop.commerce_api.repository.ProductRepository;
 import jakarta.validation.Valid;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -185,12 +188,30 @@ public class ProductAdminController {
     }
 
     @GetMapping("/products")
-    public List<ProductResponse> listProducts() {
-        return productRepository.findAll()
+    public Map<String, Object> listProductsPaged(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
+    ) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+
+        Page<Product> pageResult = productRepository.findAll(pageable);
+
+        List<ProductResponse> items = pageResult.getContent()
                 .stream()
                 .map(this::toProductResponse)
                 .collect(Collectors.toList());
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("items", items);
+        response.put("totalItems", pageResult.getTotalElements());
+        response.put("totalPages", pageResult.getTotalPages());
+        response.put("currentPage", pageResult.getNumber());
+        response.put("pageSize", pageResult.getSize());
+
+        return response;
     }
+
+
 
 
     /* ================================

@@ -26,9 +26,11 @@ export async function deleteCategory(id) {
 // -----------------------------
 // PRODUCT
 // -----------------------------
-export async function getAdminProducts() {
-  const { data } = await http.get("/admin/catalog/products");
-  return data;
+export async function getAdminProducts(page = 0, size = 6) {
+  const { data } = await http.get("/admin/catalog/products", {
+    params: { page, size },
+  });
+  return data; // { items, totalPages, currentPage, totalItems, pageSize }
 }
 
 export async function createProduct(payload) {

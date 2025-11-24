@@ -14,7 +14,7 @@ import { uploadImage } from "../../api/upload";
 
 const GENDERS = ["MEN", "WOMEN"];
 const STATUSES = ["DRAFT", "PUBLISHED", "ARCHIVED"];
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
 export default function AdminCatalog() {
   const [params] = useSearchParams();
@@ -45,21 +45,14 @@ export default function AdminCatalog() {
   const [editingProduct, setEditingProduct] = useState(null);
   const [productLoading, setProductLoading] = useState(false);
 
-  // Images: existing (from backend) + new files (to be uploaded)
-  const [existingImages, setExistingImages] = useState([]); // [{ url, alt }]
-  const [newImages, setNewImages] = useState([]); // File[]
+  const [existingImages, setExistingImages] = useState([]);
+  const [newImages, setNewImages] = useState([]);
 
-  /* --------------------
-        FILTER CATS
-  -------------------- */
   const filteredCategories = useMemo(() => {
     if (!productGender) return categories;
     return categories.filter((c) => c.gender === productGender);
   }, [categories, productGender]);
 
-  /* --------------------
-        SLUG GENERATION
-  -------------------- */
   const handleTitleChange = (v) => {
     setTitle(v);
     if (!slug) {
@@ -73,9 +66,6 @@ export default function AdminCatalog() {
     }
   };
 
-  /* --------------------
-        INITIAL LOAD
-  -------------------- */
   useEffect(() => {
     loadCategories();
   }, []);
@@ -89,17 +79,12 @@ export default function AdminCatalog() {
     }
   }
 
-  /* --------------------
-     LOAD PRODUCT FOR EDIT
-  -------------------- */
   useEffect(() => {
     async function loadEditProduct() {
       if (!editId) return;
-
       try {
         const all = await getAdminProducts();
         const product = all.find((p) => p.id === editId);
-
         if (product) {
           setEditingProduct(product.id);
           setProductGender(product.categoryGender || "");
@@ -112,8 +97,6 @@ export default function AdminCatalog() {
           setCurrency(product.currency || "EUR");
           setStock(product.stock ?? "");
           setStatus(product.status || "PUBLISHED");
-
-          // product.images is [{ url, alt }]
           setExistingImages(product.images || []);
           setNewImages([]);
         }
@@ -121,13 +104,9 @@ export default function AdminCatalog() {
         toast.error("Failed to load product");
       }
     }
-
     loadEditProduct();
   }, [editId]);
 
-  /* --------------------
-     CATEGORY CREATE/EDIT
-  -------------------- */
   async function handleCreateCategory(e) {
     e.preventDefault();
     if (!catName.trim()) return toast.error("Category name required");
@@ -140,11 +119,9 @@ export default function AdminCatalog() {
           name: catName.trim(),
           gender: catGender,
         });
-
         setCategories((prev) =>
           prev.map((c) => (c.id === updated.id ? updated : c))
         );
-
         setEditingCategory(null);
         toast.success("Category updated");
       } else {
@@ -164,16 +141,12 @@ export default function AdminCatalog() {
     }
   }
 
-  /* --------------------
-     PRODUCT CREATE/EDIT
-  -------------------- */
   async function handleCreateProduct(e) {
     e.preventDefault();
 
     if (!productCategoryId) return toast.error("Choose a category");
-    if (!title.trim()) return toast.error("Product title is required");
+    if (!title.trim()) return toast.error("Product title required");
 
-    // Frontend size check (10MB per file)
     for (const file of newImages) {
       if (file.size > MAX_FILE_SIZE) {
         toast.error(`"${file.name}" exceeds 10 MB limit`);
@@ -184,22 +157,14 @@ export default function AdminCatalog() {
     try {
       setProductLoading(true);
 
-      // 1) Upload new images to backend → Cloudinary
       let uploadedDtos = [];
       if (newImages.length > 0) {
-        const urls = await Promise.all(
-          newImages.map((file) => uploadImage(file))
-        );
-        uploadedDtos = urls.map((url) => ({
-          url,
-          alt: title,
-        }));
+        const urls = await Promise.all(newImages.map((f) => uploadImage(f)));
+        uploadedDtos = urls.map((url) => ({ url, alt: title }));
       }
 
-      // 2) Combine old + new images
       const finalImages = [...(existingImages || []), ...uploadedDtos];
 
-      // 3) Build payload for product create/update
       const payload = {
         title,
         slug,
@@ -249,37 +214,52 @@ export default function AdminCatalog() {
   }
 
   /* --------------------
-        RENDER PAGE
+        RENDER UI
   -------------------- */
   return (
     <div className="space-y-10">
-      <h1 className="text-3xl font-bold text-gray-900">Catalog Management</h1>
+      
+      {/* PAGE HEADER */}
+      <header className="flex flex-col gap-1">
+        <h1 className="text-3xl font-bold text-gray-900 tracking-tight">
+          Catalog Management
+        </h1>
+        <p className="text-gray-600">
+          Manage categories, add products, and update inventory.
+        </p>
+      </header>
 
-      <div className="grid md:grid-cols-2 gap-8">
-        {/* --------------------
-            CATEGORY SECTION
-        -------------------- */}
-        <section className="bg-white p-6 rounded-xl shadow border border-gray-200">
-          <h2 className="text-xl font-semibold mb-4">
-            {editingCategory ? "Edit Category" : "Add Category"}
+      {/* MAIN GRID */}
+      <div className="grid md:grid-cols-2 gap-10">
+
+        {/* LEFT PANEL: CATEGORY FORM */}
+        <section className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+
+          <h2 className="text-xl font-semibold mb-6">
+            {editingCategory ? "Edit Category" : "Create Category"}
           </h2>
 
-          <form className="space-y-4" onSubmit={handleCreateCategory}>
-            <div>
-              <label className="text-sm font-medium">Category Name</label>
+          {/* CATEGORY FORM */}
+          <form className="space-y-5" onSubmit={handleCreateCategory}>
+            
+            <div className="flex flex-col">
+              <label className="text-sm text-gray-700 font-medium">
+                Category Name
+              </label>
               <input
                 value={catName}
                 onChange={(e) => setCatName(e.target.value)}
-                className="w-full mt-1 rounded-md border-gray-300 shadow-sm"
+                className="mt-1 rounded-lg border-gray-300 shadow-sm focus:ring-indigo-500"
+                placeholder="e.g., T-Shirts"
               />
             </div>
 
-            <div>
-              <label className="text-sm font-medium">Gender</label>
+            <div className="flex flex-col">
+              <label className="text-sm text-gray-700 font-medium">Gender</label>
               <select
                 value={catGender}
                 onChange={(e) => setCatGender(e.target.value)}
-                className="w-full mt-1 rounded-md border-gray-300 shadow-sm"
+                className="mt-1 rounded-lg border-gray-300 shadow-sm"
               >
                 {GENDERS.map((g) => (
                   <option key={g}>{g}</option>
@@ -289,36 +269,37 @@ export default function AdminCatalog() {
 
             <button
               disabled={catLoading}
-              className="px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700"
+              className="w-full py-2.5 rounded-lg bg-indigo-600 text-white font-medium hover:bg-indigo-700 transition"
             >
               {editingCategory ? "Update Category" : "Create Category"}
             </button>
           </form>
 
           {/* CATEGORY LIST */}
-          <div className="mt-6">
-            <h3 className="text-sm font-medium text-gray-700 mb-2">
-              Existing Categories
+          <div className="mt-8">
+            <h3 className="text-sm text-gray-600 font-semibold mb-3">
+              Categories
             </h3>
 
-            <ul className="space-y-1 text-sm">
+            <ul className="space-y-2">
               {categories.map((c) => (
-                <li key={c.id} className="flex justify-between items-center">
+                <li
+                  key={c.id}
+                  className="flex items-center justify-between bg-gray-50 px-3 py-2 rounded-lg border text-sm"
+                >
                   <div>
                     <span className="font-medium">{c.name}</span>
-                    <span className="text-xs text-gray-500 ml-2">
-                      {c.gender}
-                    </span>
+                    <span className="ml-2 text-gray-500 text-xs">{c.gender}</span>
                   </div>
 
-                  <div className="flex gap-3">
+                  <div className="flex gap-4">
                     <button
                       onClick={() => {
                         setEditingCategory(c.id);
                         setCatName(c.name);
                         setCatGender(c.gender);
                       }}
-                      className="text-blue-600 text-xs hover:underline"
+                      className="text-blue-600 hover:underline text-xs"
                     >
                       Edit
                     </button>
@@ -332,7 +313,7 @@ export default function AdminCatalog() {
                         );
                         toast.success("Category deleted");
                       }}
-                      className="text-red-600 text-xs hover:underline"
+                      className="text-red-600 hover:underline text-xs"
                     >
                       Delete
                     </button>
@@ -343,25 +324,26 @@ export default function AdminCatalog() {
           </div>
         </section>
 
-        {/* --------------------
-            PRODUCT FORM
-        -------------------- */}
-        <section className="bg-white p-6 rounded-xl shadow border border-gray-200">
-          <h2 className="text-xl font-semibold mb-4">
-            {editingProduct ? "Edit Product" : "Add Product"}
+        {/* RIGHT PANEL: PRODUCT FORM */}
+        <section className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+
+          <h2 className="text-xl font-semibold mb-6">
+            {editingProduct ? "Edit Product" : "Create Product"}
           </h2>
 
-          <form className="space-y-4" onSubmit={handleCreateProduct}>
-            {/* Gender */}
-            <div>
-              <label className="text-sm font-medium">Gender</label>
+          {/* PRODUCT FORM */}
+          <form className="space-y-6" onSubmit={handleCreateProduct}>
+
+            {/* GENDER */}
+            <div className="flex flex-col">
+              <label className="text-sm text-gray-700 font-medium">Gender</label>
               <select
                 value={productGender}
                 onChange={(e) => {
                   setProductGender(e.target.value);
                   setProductCategoryId("");
                 }}
-                className="w-full mt-1 rounded-md border-gray-300 shadow-sm"
+                className="mt-1 rounded-lg border-gray-300 shadow-sm"
               >
                 <option value="">All</option>
                 {GENDERS.map((g) => (
@@ -370,13 +352,13 @@ export default function AdminCatalog() {
               </select>
             </div>
 
-            {/* Category */}
-            <div>
-              <label className="text-sm font-medium">Category</label>
+            {/* CATEGORY */}
+            <div className="flex flex-col">
+              <label className="text-sm text-gray-700 font-medium">Category</label>
               <select
                 value={productCategoryId}
                 onChange={(e) => setProductCategoryId(e.target.value)}
-                className="w-full mt-1 rounded-md border-gray-300 shadow-sm"
+                className="mt-1 rounded-lg border-gray-300 shadow-sm"
               >
                 <option value="">Select...</option>
                 {filteredCategories.map((c) => (
@@ -387,86 +369,100 @@ export default function AdminCatalog() {
               </select>
             </div>
 
-            {/* Title */}
-            <div>
-              <label className="text-sm font-medium">Title</label>
+            {/* TITLE */}
+            <div className="flex flex-col">
+              <label className="text-sm text-gray-700 font-medium">Title</label>
               <input
                 value={title}
                 onChange={(e) => handleTitleChange(e.target.value)}
-                className="w-full mt-1 rounded-md border-gray-300 shadow-sm"
+                className="mt-1 rounded-lg border-gray-300 shadow-sm"
+                placeholder="e.g., Cotton Hoodie"
               />
             </div>
 
-            {/* Slug */}
-            <div>
-              <label className="text-sm font-medium">Slug</label>
+            {/* SLUG */}
+            <div className="flex flex-col">
+              <label className="text-sm text-gray-700 font-medium">Slug</label>
               <input
                 value={slug}
                 onChange={(e) => setSlug(e.target.value)}
-                className="w-full mt-1 rounded-md border-gray-300 shadow-sm"
+                className="mt-1 rounded-lg border-gray-300 shadow-sm"
+                placeholder="cotton-hoodie"
               />
             </div>
 
-            {/* Description */}
-            <div>
-              <label className="text-sm font-medium">Description</label>
+            {/* DESCRIPTION */}
+            <div className="flex flex-col">
+              <label className="text-sm text-gray-700 font-medium">
+                Description
+              </label>
               <textarea
                 rows="3"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                className="w-full mt-1 rounded-md border-gray-300 shadow-sm"
+                className="mt-1 rounded-lg border-gray-300 shadow-sm"
+                placeholder="Short description of the product..."
               />
             </div>
 
-            {/* Price + Discount */}
+            {/* PRICE + DISCOUNT */}
             <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-sm font-medium">Price</label>
+              <div className="flex flex-col">
+                <label className="text-sm font-medium text-gray-700">Price</label>
                 <input
                   type="number"
                   value={price}
                   onChange={(e) => setPrice(e.target.value)}
-                  className="w-full mt-1 rounded-md border-gray-300 shadow-sm"
+                  className="mt-1 rounded-lg border-gray-300 shadow-sm"
                 />
               </div>
-              <div>
-                <label className="text-sm font-medium">Discount Price</label>
+
+              <div className="flex flex-col">
+                <label className="text-sm font-medium text-gray-700">
+                  Discount Price
+                </label>
                 <input
                   type="number"
                   value={discountPrice}
                   onChange={(e) => setDiscountPrice(e.target.value)}
-                  className="w-full mt-1 rounded-md border-gray-300 shadow-sm"
+                  className="mt-1 rounded-lg border-gray-300 shadow-sm"
                 />
               </div>
             </div>
 
-            {/* Currency + Stock + Status */}
+            {/* CURRENCY + STOCK + STATUS */}
             <div className="grid grid-cols-3 gap-4">
-              <div>
-                <label className="text-sm font-medium">Currency</label>
+              <div className="flex flex-col">
+                <label className="text-sm font-medium text-gray-700">
+                  Currency
+                </label>
                 <input
                   value={currency}
                   onChange={(e) => setCurrency(e.target.value)}
-                  className="w-full mt-1 rounded-md border-gray-300 shadow-sm"
+                  className="mt-1 rounded-lg border-gray-300 shadow-sm"
                 />
               </div>
 
-              <div>
-                <label className="text-sm font-medium">Stock</label>
+              <div className="flex flex-col">
+                <label className="text-sm font-medium text-gray-700">
+                  Stock
+                </label>
                 <input
                   type="number"
                   value={stock}
                   onChange={(e) => setStock(e.target.value)}
-                  className="w-full mt-1 rounded-md border-gray-300 shadow-sm"
+                  className="mt-1 rounded-lg border-gray-300 shadow-sm"
                 />
               </div>
 
-              <div>
-                <label className="text-sm font-medium">Status</label>
+              <div className="flex flex-col">
+                <label className="text-sm font-medium text-gray-700">
+                  Status
+                </label>
                 <select
                   value={status}
                   onChange={(e) => setStatus(e.target.value)}
-                  className="w-full mt-1 rounded-md border-gray-300 shadow-sm"
+                  className="mt-1 rounded-lg border-gray-300 shadow-sm"
                 >
                   {STATUSES.map((s) => (
                     <option key={s}>{s}</option>
@@ -475,49 +471,49 @@ export default function AdminCatalog() {
               </div>
             </div>
 
-            {/* Image Upload */}
-            <div>
-              <label className="text-sm font-medium">Product Images</label>
+            {/* IMAGES */}
+            <div className="flex flex-col">
+              <label className="text-sm font-medium text-gray-700">
+                Product Images
+              </label>
               <input
                 type="file"
-                multiple
                 accept="image/*"
+                multiple
                 onChange={(e) => setNewImages([...e.target.files])}
-                className="w-full mt-2 rounded-md border-gray-300 shadow-sm bg-white"
+                className="mt-2 rounded-lg border-gray-300 shadow-sm bg-white"
               />
 
               {/* Existing Images */}
               {existingImages.length > 0 && (
                 <div className="mt-3">
                   <p className="text-xs text-gray-500 mb-1">
-                    Existing images (already saved):
+                    Existing images:
                   </p>
                   <div className="grid grid-cols-3 gap-2">
                     {existingImages.map((img, idx) => (
                       <img
                         key={idx}
                         src={img.url}
-                        alt={img.alt || "product image"}
-                        className="h-20 w-full object-cover rounded-md border"
+                        alt={img.alt}
+                        className="h-20 w-full rounded-lg object-cover border"
                       />
                     ))}
                   </div>
                 </div>
               )}
 
-              {/* New Images Preview */}
+              {/* Preview New Images */}
               {newImages.length > 0 && (
                 <div className="mt-3">
-                  <p className="text-xs text-gray-500 mb-1">
-                    New images (will be uploaded on save):
-                  </p>
+                  <p className="text-xs text-gray-500 mb-1">New images:</p>
                   <div className="grid grid-cols-3 gap-2">
                     {newImages.map((file, idx) => (
                       <img
                         key={idx}
                         src={URL.createObjectURL(file)}
                         alt="preview"
-                        className="h-20 w-full object-cover rounded-md border"
+                        className="h-20 w-full rounded-lg object-cover border"
                       />
                     ))}
                   </div>
@@ -525,11 +521,12 @@ export default function AdminCatalog() {
               )}
             </div>
 
+            {/* BUTTON */}
             <button
               disabled={productLoading}
-              className="px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700"
+              className="w-full py-2.5 rounded-lg bg-indigo-600 text-white font-medium hover:bg-indigo-700 transition"
             >
-              {editingProduct ? "Update Product" : "Create Product"}
+              {editingProduct ? "Update Product" : "Add Product"}
             </button>
           </form>
         </section>

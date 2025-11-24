@@ -1,10 +1,13 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import toast from "react-hot-toast";
 import http from "../../lib/http";
+import { Search } from "lucide-react";
 
 export default function AdminUsers() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  const [search, setSearch] = useState("");
 
   async function fetchUsers() {
     try {
@@ -37,47 +40,86 @@ export default function AdminUsers() {
     }
   }
 
-  useEffect(() => { fetchUsers(); }, []);
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
+  // Filter logic for search
+  const filteredUsers = useMemo(() => {
+    if (!search.trim()) return users;
+
+    return users.filter((u) =>
+      (u.name ?? "")
+        .toLowerCase()
+        .includes(search.toLowerCase())
+    );
+  }, [users, search]);
 
   if (loading) {
-    return <p className="text-center mt-10 text-gray-500">Loading users…</p>;
+    return (
+      <p className="text-center mt-10 text-gray-500">
+        Loading users…
+      </p>
+    );
   }
 
   return (
-    <div className="rounded-lg bg-white p-4 shadow">
-      <h2 className="mb-4 text-xl font-semibold">Registered Users</h2>
-      <div className="overflow-x-auto">
+    <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-200">
+
+      {/* HEADER */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <h2 className="text-2xl font-bold text-gray-900">
+          Registered Users
+        </h2>
+
+        {/* SEARCH BAR */}
+        <div className="relative w-full sm:w-64">
+          <Search className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Search by name..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-10 w-full rounded-xl border-gray-300 shadow-sm focus:ring-indigo-500"
+          />
+        </div>
+      </div>
+
+      {/* TABLE */}
+      <div className="overflow-x-auto rounded-xl border border-gray-200">
         <table className="min-w-full text-sm text-gray-700">
-          <thead className="bg-gray-100 text-gray-800">
+          <thead className="bg-gray-50 text-gray-800 rounded-xl">
             <tr>
-              <th className="px-4 py-2 text-left">Name</th>
-              <th className="px-4 py-2 text-left">Email</th>
-              <th className="px-4 py-2 text-left">Roles</th>
-              <th className="px-4 py-2 text-center">Actions</th>
+              <th className="px-4 py-3 text-left font-semibold">Name</th>
+              <th className="px-4 py-3 text-left font-semibold">Email</th>
+              <th className="px-4 py-3 text-left font-semibold">Roles</th>
+              <th className="px-4 py-3 text-center font-semibold">Actions</th>
             </tr>
           </thead>
-          <tbody>
-            {users.map((u, idx) => {
+
+          <tbody className="divide-y divide-gray-200">
+            {filteredUsers.map((u, idx) => {
               const roles = Array.isArray(u.roles) ? u.roles : [...(u.roles ?? [])];
               const isAdmin = roles.includes("ADMIN");
 
               return (
-                <tr key={u.id || u.email || idx} className={idx % 2 ? "bg-gray-50" : "bg-white"}>
-                  <td className="px-4 py-2">{u.name ?? "-"}</td>
-                  <td className="px-4 py-2">{u.email}</td>
-                  <td className="px-4 py-2">{roles.join(", ")}</td>
-                  <td className="px-4 py-2 text-center">
+                <tr key={u.id || u.email || idx} className="hover:bg-gray-50">
+                  <td className="px-4 py-3">{u.name ?? "-"}</td>
+                  <td className="px-4 py-3">{u.email}</td>
+                  <td className="px-4 py-3">{roles.join(", ")}</td>
+
+                  <td className="px-4 py-3 text-center">
                     {isAdmin ? (
                       <button
                         onClick={() => demoteUser(u.email)}
-                        className="rounded bg-red-500 px-3 py-1 text-white hover:bg-red-600"
+                        className="rounded-lg bg-red-500 px-4 py-1.5 text-white hover:bg-red-600 transition"
                       >
                         Demote
                       </button>
                     ) : (
                       <button
                         onClick={() => promoteUser(u.email)}
-                        className="rounded bg-green-600 px-3 py-1 text-white hover:bg-green-700"
+                        className="rounded-lg bg-green-600 px-4 py-1.5 text-white hover:bg-green-700 transition"
                       >
                         Promote
                       </button>
@@ -86,10 +128,11 @@ export default function AdminUsers() {
                 </tr>
               );
             })}
-            {users.length === 0 && (
+
+            {filteredUsers.length === 0 && (
               <tr>
                 <td colSpan={4} className="py-6 text-center text-gray-500">
-                  No users found.
+                  No matching users found.
                 </td>
               </tr>
             )}
