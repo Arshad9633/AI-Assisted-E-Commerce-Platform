@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { getAdminProducts, deleteProduct } from "../../api/adminCatalog";
@@ -185,6 +185,7 @@ export default function AdminProductList() {
               <th className="py-3 px-4 text-left">Title</th>
               <th className="py-3 px-4 text-left">Price</th>
               <th className="py-3 px-4 text-left">Category</th>
+              <th className="py-3 px-4 text-left">Stock</th>
               <th className="py-3 px-4 text-left">Status</th>
               <th className="py-3 px-4 text-center">Actions</th>
             </tr>
@@ -198,6 +199,7 @@ export default function AdminProductList() {
                   {p.price} {p.currency}
                 </td>
                 <td className="py-3 px-4">{p.categoryName}</td>
+                <td className="py-3 px-4">{p.stock ?? "-"}</td>
                 <td className="py-3 px-4">
                   <span
                     className={`px-2 py-1 rounded text-xs font-semibold ${
@@ -220,7 +222,6 @@ export default function AdminProductList() {
                     Edit
                   </button>
 
-
                   <button
                     onClick={() => onDelete(p.id)}
                     className="text-red-600 hover:underline"
@@ -233,7 +234,7 @@ export default function AdminProductList() {
 
             {pagedView.length === 0 && (
               <tr>
-                <td colSpan={5} className="py-6 text-center text-gray-500">
+                <td colSpan={6} className="py-6 text-center text-gray-500">
                   No matching products found.
                 </td>
               </tr>

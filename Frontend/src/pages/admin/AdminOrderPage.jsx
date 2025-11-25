@@ -250,26 +250,39 @@ export default function AdminOrdersPage() {
 /* --- ORDER CARD WITH STATUS UPDATE FEATURE --- */
 function OrderCard({ order }) {
   const [updating, setUpdating] = useState(false);
+  const [localStatus, setLocalStatus] = useState(order.status);
 
   const updateStatus = async (newStatus) => {
-  if (newStatus === order.status) return;
+    if (newStatus === localStatus) return;
 
-  try {
+    const previousStatus = localStatus;
+    setLocalStatus(newStatus);
     setUpdating(true);
-    
-    await axiosAuth.patch(
-      `/admin/orders/${order.id}/status?status=${newStatus}`
-    );
 
-    order.status = newStatus; // update UI
-    setUpdating(false);
-  } catch (err) {
-    console.error("Status update failed:", err.response?.data);
-    alert("Failed to update status");
-    setUpdating(false);
-  }
-};
+    try {
+      const res = await axiosAuth.patch(
+        `/admin/orders/${order.id}/status`,
+        null,
+        { params: { status: newStatus } }
+      );
 
+      // backend returns updated order; trust its status
+      const updatedStatus = res.data?.status ?? newStatus;
+      setLocalStatus(updatedStatus);
+    } catch (err) {
+      console.error("Status update failed:", err?.response?.data || err.message);
+
+      // revert to previous status
+      setLocalStatus(previousStatus);
+
+      const msg =
+        err?.response?.data?.message ||
+        "Failed to update status. Check product stock or try again.";
+      alert(msg);
+    } finally {
+      setUpdating(false);
+    }
+  };
 
   return (
     <div className="bg-white p-6 rounded-xl shadow border">
@@ -290,7 +303,7 @@ function OrderCard({ order }) {
           <select
             className="mt-1 border px-2 py-1 rounded-lg text-sm"
             disabled={updating}
-            value={order.status}
+            value={localStatus}
             onChange={(e) => updateStatus(e.target.value)}
           >
             {STATUS_UPDATE_OPTIONS.map((s) => (

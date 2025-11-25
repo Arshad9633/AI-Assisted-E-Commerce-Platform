@@ -28,7 +28,7 @@ public class ProductPublicController {
     }
 
     // ----------------------------
-    // 1. Public Product List
+    // 1. Public Product List (search + paging)
     // ----------------------------
     @GetMapping
     public Page<ProductResponse> list(
@@ -58,15 +58,17 @@ public class ProductPublicController {
     // ----------------------------
     @GetMapping("/{slug}")
     public ResponseEntity<ProductResponse> get(@PathVariable String slug) {
+        // 🔐 Keep status filter, but make sure repo has this method
         return productRepo.findBySlugAndStatus(slug, "PUBLISHED")
                 .map(p -> ResponseEntity.ok(toProductResponse(p)))
                 .orElse(ResponseEntity.notFound().build());
     }
 
     // ----------------------------
-    // 3. Filter Products (Navbar / Storefront)
+    // 3. Filter Products by Gender + Category Name
+    //    (used by /products/:gender/:categorySlug)
     // ----------------------------
-    @GetMapping("/filter")
+    @GetMapping("/by-category")
     public ResponseEntity<List<ProductResponse>> filterProducts(
             @RequestParam String gender,
             @RequestParam String category
@@ -78,8 +80,13 @@ public class ProductPublicController {
             return ResponseEntity.badRequest().build();
         }
 
-        List<Category> categories = categoryRepo.searchCategoryByNameContains(category, genderEnum);
-        if (categories.isEmpty()) return ResponseEntity.ok(List.of());
+        // case-insensitive search by category name + gender
+        List<Category> categories =
+                categoryRepo.searchCategoryByNameContains(category, genderEnum);
+
+        if (categories.isEmpty()) {
+            return ResponseEntity.ok(List.of());
+        }
 
         Category cat = categories.get(0);
 
@@ -91,6 +98,7 @@ public class ProductPublicController {
 
         return ResponseEntity.ok(response);
     }
+
 
     // ----------------------------
     // Helpers

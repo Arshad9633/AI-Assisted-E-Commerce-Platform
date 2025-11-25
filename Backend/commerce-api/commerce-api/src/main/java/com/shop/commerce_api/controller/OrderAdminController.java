@@ -3,9 +3,12 @@ package com.shop.commerce_api.controller;
 import com.shop.commerce_api.dto.OrderResponse;
 import com.shop.commerce_api.entity.Notification;
 import com.shop.commerce_api.entity.Order;
+import com.shop.commerce_api.entity.OrderItem;
 import com.shop.commerce_api.entity.OrderStatus;
+import com.shop.commerce_api.entity.Product;
 import com.shop.commerce_api.repository.NotificationRepository;
 import com.shop.commerce_api.repository.OrderRepository;
+import com.shop.commerce_api.repository.ProductRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
@@ -21,10 +24,14 @@ public class OrderAdminController {
 
     private final OrderRepository orderRepository;
     private final NotificationRepository notificationRepository;
+    private final ProductRepository productRepository;
 
-    public OrderAdminController(OrderRepository orderRepository, NotificationRepository notificationRepository) {
+    public OrderAdminController(OrderRepository orderRepository,
+                                NotificationRepository notificationRepository,
+                                ProductRepository productRepository) {
         this.orderRepository = orderRepository;
         this.notificationRepository = notificationRepository;
+        this.productRepository = productRepository;
     }
 
     @GetMapping
@@ -51,9 +58,31 @@ public class OrderAdminController {
     ) {
         return orderRepository.findById(id)
                 .map(order -> {
+
+                    OrderStatus oldStatus = order.getStatus();
+
+                    // -------------------------------------------------------
+                    // ✅ STOCK DEDUCTION LOGIC (only when marking order as PAID)
+                    // -------------------------------------------------------
+                    if (oldStatus != OrderStatus.PAID && status == OrderStatus.PAID) {
+                        for (OrderItem item : order.getItems()) {
+
+                            Product product = productRepository.findById(item.getProductId())
+                                    .orElse(null);
+
+                            if (product != null) {
+                                int newStock = Math.max(0, product.getStock() - item.getQuantity());
+                                product.setStock(newStock);
+                                productRepository.save(product);
+                            }
+                        }
+                    }
+
+                    // Update status
                     order.setStatus(status);
                     Order saved = orderRepository.save(order);
 
+                    // create notification
                     Notification notification = Notification.builder()
                             .userEmail(order.getEmail())
                             .message("Your order #" + order.getId() + " is now " + status)
