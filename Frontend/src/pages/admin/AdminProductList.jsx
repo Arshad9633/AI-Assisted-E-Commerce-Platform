@@ -1,73 +1,164 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { getAdminProducts, deleteProduct } from "../../api/adminCatalog";
-import { ADMIN_BASE } from "../../config/routes";
 import { Search } from "lucide-react";
 
 export default function AdminProductList() {
-  const [products, setProducts] = useState([]);
-  const [search, setSearch] = useState("");
-
-  // Pagination state (frontend)
-  const [page, setPage] = useState(1);
-  const PAGE_SIZE = 6;
-
   const navigate = useNavigate();
 
+  const [page, setPage] = useState(0);            // current page (0-based)
+  const PAGE_SIZE = 6;
+
+  const [items, setItems] = useState([]);        // current items (either current page OR filtered results when searching)
+  const [totalPages, setTotalPages] = useState(1);
+  const [search, setSearch] = useState("");
+
+  const searchTimeout = useRef(null);
+
+  // load a single page (normal mode)
   useEffect(() => {
-    load();
-  }, []);
+    // only load page-mode when there's no active search
+    if (search.trim()) return;
+    load(page);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, search]);
 
-  async function load() {
+  async function load(p = 0) {
     try {
-      const data = await getAdminProducts();
-      console.log("📡 API response (admin products):", data);
-
-      // ✅ Handle both: array OR { items: [...] }
-      const items = Array.isArray(data) ? data : data.items || [];
-      setProducts(items);
+      const res = await getAdminProducts(p, PAGE_SIZE);
+      // backend may return { items, totalPages } or an array
+      if (Array.isArray(res)) {
+        setItems(res);
+        setTotalPages(Math.max(1, Math.ceil(res.length / PAGE_SIZE)));
+      } else {
+        setItems(res.items || []);
+        setTotalPages(res.totalPages || 1);
+      }
     } catch (err) {
       console.error("Failed to load products:", err);
       toast.error("Failed to load products");
     }
   }
 
-  /* -----------------------------
-        SEARCH FILTER
-  ----------------------------- */
-  const filteredProducts = useMemo(() => {
-    if (!search.trim()) return products;
+  // function to fetch ALL pages then return merged items
+  async function fetchAllPagesAndMerge() {
+    try {
+      // first call to obtain totalPages or possibly the full array
+      const first = await getAdminProducts(0, PAGE_SIZE);
 
-    return products.filter((p) =>
-      `${p.title ?? ""} ${p.categoryName ?? ""}`
-        .toLowerCase()
-        .includes(search.toLowerCase())
-    );
-  }, [products, search]);
+      if (Array.isArray(first)) {
+        // backend returned full array (no paging)
+        return first;
+      }
 
-  /* -----------------------------
-        PAGINATION CALCULATION
-  ----------------------------- */
-  const totalPages = Math.ceil(filteredProducts.length / PAGE_SIZE) || 1;
+      const pages = first.totalPages || 1;
+      // gather promises for all pages (we already have page 0)
+      const promises = [];
+      for (let i = 0; i < pages; i++) {
+        if (i === 0) {
+          promises.push(Promise.resolve(first));
+        } else {
+          promises.push(getAdminProducts(i, PAGE_SIZE));
+        }
+      }
+      const results = await Promise.all(promises);
 
-  const paginatedProducts = useMemo(() => {
-    const safePage = Math.min(page, totalPages); // avoid overflow
-    const start = (safePage - 1) * PAGE_SIZE;
-    return filteredProducts.slice(start, start + PAGE_SIZE);
-  }, [filteredProducts, page, totalPages]);
+      // flatten items from each page result
+      const allItems = results.flatMap((r) => (Array.isArray(r) ? r : r.items || []));
+      return allItems;
+    } catch (err) {
+      console.error("Failed to fetch all pages:", err);
+      throw err;
+    }
+  }
 
-  const goNext = () => {
-    if (page < totalPages) setPage(page + 1);
-  };
+  // watch search and debounce
+  useEffect(() => {
+    // clear previous debounce
+    if (searchTimeout.current) {
+      clearTimeout(searchTimeout.current);
+      searchTimeout.current = null;
+    }
 
-  const goPrev = () => {
-    if (page > 1) setPage(page - 1);
+    // if search empty -> reset to normal paged mode and load current page
+    if (!search.trim()) {
+      // reload the current page in server-paged mode
+      load(page);
+      return;
+    }
+
+    // debounce the search to avoid hammering server while typing
+    searchTimeout.current = setTimeout(async () => {
+      try {
+        // fetch all items across pages, then filter client-side
+        const all = await fetchAllPagesAndMerge();
+
+        // guard: if no items, empty result
+        if (!all || all.length === 0) {
+          setItems([]);
+          setTotalPages(1);
+          setPage(0);
+          return;
+        }
+
+        const q = search.toLowerCase().trim();
+        const matched = all.filter((p) => {
+          const txt = `${p.title || ""} ${p.slug || ""} ${p.categoryName || ""}`.toLowerCase();
+          return txt.includes(q);
+        });
+
+        // set items to matched results and prepare client-side pagination
+        setItems(matched);
+        setTotalPages(Math.max(1, Math.ceil(matched.length / PAGE_SIZE)));
+        setPage(0); // show first page of matches
+      } catch (err) {
+        console.error("Search failed:", err);
+        toast.error("Search failed");
+      }
+    }, 300);
+
+    // cleanup on unmount or next change
+    return () => {
+      if (searchTimeout.current) {
+        clearTimeout(searchTimeout.current);
+        searchTimeout.current = null;
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search]);
+
+  // client-side filtered items for the current page view
+  const start = page * PAGE_SIZE;
+  const pagedView = items.slice(start, start + PAGE_SIZE);
+
+  // UI handlers
+  const onDelete = async (id) => {
+    if (!confirm("Delete this product?")) return;
+    try {
+      await deleteProduct(id);
+      // if we are in search mode (search active), refetch the filtered list:
+      if (search.trim()) {
+        // re-run search: simply remove the item from current items
+        setItems((prev) => prev.filter((x) => x.id !== id));
+        // recalc totalPages
+        setTotalPages((prev) => Math.max(1, Math.ceil(Math.max(0, items.length - 1) / PAGE_SIZE)));
+        // ensure page within bounds
+        setPage((p) => Math.min(p, Math.max(0, Math.ceil((items.length - 1) / PAGE_SIZE) - 1)));
+      } else {
+        // normal mode: reload current page from server
+        load(page);
+      }
+      toast.success("Deleted");
+    } catch (err) {
+      console.error("Delete failed:", err);
+      toast.error("Delete failed");
+    }
   };
 
   return (
     <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
-      {/* HEADER + SEARCH */}
+      {/* HEADER */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <h2 className="text-2xl font-bold text-gray-900">Products</h2>
 
@@ -79,9 +170,9 @@ export default function AdminProductList() {
             value={search}
             onChange={(e) => {
               setSearch(e.target.value);
-              setPage(1); // reset page on search
+              setPage(0); // reset page to first whenever search changes
             }}
-            className="pl-10 w-full rounded-xl border-gray-300 shadow-sm focus:ring-indigo-500"
+            className="pl-10 w-full rounded-xl border-gray-300 shadow-sm"
           />
         </div>
       </div>
@@ -91,17 +182,17 @@ export default function AdminProductList() {
         <table className="min-w-full text-sm text-gray-700">
           <thead className="bg-gray-50 text-gray-800">
             <tr>
-              <th className="py-3 px-4 text-left font-semibold">Title</th>
-              <th className="py-3 px-4 text-left font-semibold">Price</th>
-              <th className="py-3 px-4 text-left font-semibold">Category</th>
-              <th className="py-3 px-4 text-left font-semibold">Status</th>
-              <th className="py-3 px-4 text-center font-semibold">Actions</th>
+              <th className="py-3 px-4 text-left">Title</th>
+              <th className="py-3 px-4 text-left">Price</th>
+              <th className="py-3 px-4 text-left">Category</th>
+              <th className="py-3 px-4 text-left">Status</th>
+              <th className="py-3 px-4 text-center">Actions</th>
             </tr>
           </thead>
 
           <tbody className="divide-y divide-gray-200">
-            {paginatedProducts.map((p) => (
-              <tr key={p.id} className="hover:bg-gray-50 transition">
+            {pagedView.map((p) => (
+              <tr key={p.id} className="hover:bg-gray-50">
                 <td className="py-3 px-4">{p.title}</td>
                 <td className="py-3 px-4">
                   {p.price} {p.currency}
@@ -123,23 +214,15 @@ export default function AdminProductList() {
 
                 <td className="py-3 px-4 text-center flex gap-4 justify-center text-sm">
                   <button
-                    onClick={() =>
-                      navigate(`${ADMIN_BASE}/catalog?edit=${p.id}`)
-                    }
+                    onClick={() => navigate(`/home/admin/products/${p.id}/edit`)}
                     className="text-blue-600 hover:underline"
                   >
                     Edit
                   </button>
 
+
                   <button
-                    onClick={async () => {
-                      if (!confirm("Delete this product?")) return;
-                      await deleteProduct(p.id);
-                      setProducts((prev) =>
-                        prev.filter((x) => x.id !== p.id)
-                      );
-                      toast.success("Deleted");
-                    }}
+                    onClick={() => onDelete(p.id)}
                     className="text-red-600 hover:underline"
                   >
                     Delete
@@ -148,12 +231,9 @@ export default function AdminProductList() {
               </tr>
             ))}
 
-            {paginatedProducts.length === 0 && (
+            {pagedView.length === 0 && (
               <tr>
-                <td
-                  colSpan={5}
-                  className="py-6 text-center text-gray-500 text-sm"
-                >
+                <td colSpan={5} className="py-6 text-center text-gray-500">
                   No matching products found.
                 </td>
               </tr>
@@ -162,39 +242,28 @@ export default function AdminProductList() {
         </table>
       </div>
 
-      {/* PAGINATION BAR */}
-      {totalPages > 1 && (
-        <div className="flex justify-between items-center mt-6">
-          <button
-            onClick={goPrev}
-            disabled={page === 1}
-            className={`px-4 py-2 rounded-lg ${
-              page === 1
-                ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-                : "bg-gray-800 text-white hover:bg-gray-700"
-            }`}
-          >
-            Prev
-          </button>
+      {/* PAGINATION */}
+      <div className="flex justify-between items-center mt-6">
+        <button
+          onClick={() => setPage((p) => Math.max(0, p - 1))}
+          disabled={page === 0}
+          className="px-4 py-2 rounded-lg bg-gray-800 text-white disabled:bg-gray-200 disabled:text-gray-500"
+        >
+          Prev
+        </button>
 
-          <p className="text-gray-600 text-sm">
-            Page <span className="font-semibold">{page}</span> of{" "}
-            <span className="font-semibold">{totalPages}</span>
-          </p>
+        <p className="text-gray-600 text-sm">
+          Page <b>{page + 1}</b> of <b>{totalPages}</b>
+        </p>
 
-          <button
-            onClick={goNext}
-            disabled={page === totalPages}
-            className={`px-4 py-2 rounded-lg ${
-              page === totalPages
-                ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-                : "bg-gray-800 text-white hover:bg-gray-700"
-            }`}
-          >
-            Next
-          </button>
-        </div>
-      )}
+        <button
+          onClick={() => setPage((p) => (p + 1 < totalPages ? p + 1 : p))}
+          disabled={page + 1 >= totalPages}
+          className="px-4 py-2 rounded-lg bg-gray-800 text-white disabled:bg-gray-200 disabled:text-gray-500"
+        >
+          Next
+        </button>
+      </div>
     </div>
   );
 }

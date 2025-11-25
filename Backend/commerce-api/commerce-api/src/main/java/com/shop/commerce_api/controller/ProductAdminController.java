@@ -204,7 +204,7 @@ public class ProductAdminController {
         List<ProductResponse> items = pageResult.getContent()
                 .stream()
                 .map(this::toProductResponse)
-                .collect(Collectors.toList());
+                .toList();
 
         Map<String, Object> response = new HashMap<>();
         response.put("items", items);
@@ -215,6 +215,7 @@ public class ProductAdminController {
 
         return response;
     }
+
 
 
     /* ================================

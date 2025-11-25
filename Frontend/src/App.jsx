@@ -16,6 +16,7 @@ import AdminUsers from "./pages/admin/AdminUsers";
 import AdminCatalog from "./pages/admin/AdminCatalog";  
 import AdminProductList from "./pages/admin/AdminProductList";
 import AdminOrdersPage from "./pages/admin/AdminOrderPage";
+import AdminEditProduct from "./pages/admin/AdminEditProduct";
 
 import ProductListPage from "./components/ProductListPage";
 import ProductPage from "./components/ProductPage";
@@ -83,6 +84,8 @@ export default function App() {
         {/* ProducList */}
           <Route path="/products/:gender/:categorySlug" element={<ProductListPage />} />
           <Route path="/product/:slug" element={<ProductPage />} />
+          <Route path="/home/admin/products/:id/edit" element={<AdminEditProduct />} />
+          
          
         {/* Fallback */}
         <Route path="*" element={<Navigate to="/" replace />} />

@@ -48,4 +48,10 @@ export async function deleteProduct(id) {
   return true;
 }
 
+// Fetch a single product by ID
+export async function getAdminProduct(id) {
+  const { data } = await http.get(`/admin/catalog/products/${id}`);
+  return data; // ProductResponse
+}
+
 
