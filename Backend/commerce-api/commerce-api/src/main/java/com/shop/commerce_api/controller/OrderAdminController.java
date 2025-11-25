@@ -61,20 +61,23 @@ public class OrderAdminController {
 
                     OrderStatus oldStatus = order.getStatus();
 
-                    // -------------------------------------------------------
-                    // ✅ STOCK DEDUCTION LOGIC (only when marking order as PAID)
-                    // -------------------------------------------------------
-                    if (oldStatus != OrderStatus.PAID && status == OrderStatus.PAID) {
+                    // ✅ Decrease stock once, when moving from PENDING to PAID or SHIPPED
+                    boolean shouldDecreaseStock =
+                            (oldStatus == OrderStatus.PENDING) &&
+                                    (status == OrderStatus.PAID || status == OrderStatus.SHIPPED);
+
+                    if (shouldDecreaseStock && order.getItems() != null) {
                         for (OrderItem item : order.getItems()) {
 
-                            Product product = productRepository.findById(item.getProductId())
-                                    .orElse(null);
+                            productRepository.findById(item.getProductId())
+                                    .ifPresent(product -> {
+                                        Integer currentStock = product.getStock();
+                                        int safeCurrentStock = (currentStock != null) ? currentStock : 0;
 
-                            if (product != null) {
-                                int newStock = Math.max(0, product.getStock() - item.getQuantity());
-                                product.setStock(newStock);
-                                productRepository.save(product);
-                            }
+                                        int newStock = Math.max(0, safeCurrentStock - item.getQuantity());
+                                        product.setStock(newStock);
+                                        productRepository.save(product);
+                                    });
                         }
                     }
 
@@ -95,6 +98,7 @@ public class OrderAdminController {
                 })
                 .orElse(ResponseEntity.notFound().build());
     }
+
 
     private OrderResponse toOrderResponse(Order o) {
         return OrderResponse.builder()
