@@ -5,12 +5,12 @@ const STATUS_OPTIONS = ["ALL", "PENDING", "PAID", "SHIPPED", "CANCELLED"];
 const STATUS_UPDATE_OPTIONS = ["PENDING", "PAID", "SHIPPED", "CANCELLED"];
 
 export default function AdminOrdersPage() {
-  const [ordersPage, setOrdersPage] = useState(null);
+  const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const [page, setPage] = useState(0);
-  const [size, setSize] = useState(10);
+  const [page, setPage] = useState(0);      // frontend page index
+  const [size, setSize] = useState(10);     // items per page
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
@@ -19,29 +19,49 @@ export default function AdminOrdersPage() {
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
 
-  // Fetch orders
+  /* --------------------------------------------------
+   * 1) LOAD ALL ORDERS (single backend call)
+   *    We request a large page so we can handle
+   *    search/sort/pagination fully on the client.
+   * -------------------------------------------------- */
   useEffect(() => {
     setLoading(true);
+    setError(null);
+
     axiosAuth
-      .get(`/admin/orders?page=${page}&size=${size}`)
-      .then((res) => setOrdersPage(res.data))
-      .catch(() => setError("Failed to load orders."))
+      .get(`/admin/orders?page=0&size=1000`)
+      .then((res) => {
+        const content = res.data?.content || [];
+        setOrders(content);
+      })
+      .catch((err) => {
+        console.error("Failed to load orders:", err);
+        setError("Failed to load orders.");
+      })
       .finally(() => setLoading(false));
-  }, [page, size]);
+  }, []);
 
-  const orders = ordersPage?.content ?? [];
-  const totalPages = ordersPage?.totalPages ?? 1;
+  /* --------------------------------------------------
+   * 2) Whenever filters/search/sort change, reset to
+   *    first page so pagination and results stay in sync.
+   * -------------------------------------------------- */
+  useEffect(() => {
+    setPage(0);
+  }, [search, statusFilter, sort, fromDate, toDate, size]);
 
-  // PROCESS ORDERS (search, status filter, date filter, sort)
+  /* --------------------------------------------------
+   * 3) Apply search + status filter + date filter + sort
+   *    on the full orders list.
+   * -------------------------------------------------- */
   const processedOrders = useMemo(() => {
     let result = [...orders];
     const s = search.toLowerCase().trim();
 
-    // search
+    // search: ID, name, email
     if (s) {
       result = result.filter((o) => {
         return (
-          String(o.id).includes(s) ||
+          String(o.id).toLowerCase().includes(s) ||
           (o.fullName || "").toLowerCase().includes(s) ||
           (o.email || "").toLowerCase().includes(s)
         );
@@ -55,14 +75,22 @@ export default function AdminOrdersPage() {
       );
     }
 
-    // date range filter
+    // date range filter (createdAt)
     if (fromDate) {
       const start = new Date(fromDate).getTime();
-      result = result.filter((o) => new Date(o.createdAt).getTime() >= start);
+      result = result.filter(
+        (o) => new Date(o.createdAt).getTime() >= start
+      );
     }
     if (toDate) {
-      const end = new Date(toDate).getTime();
-      result = result.filter((o) => new Date(o.createdAt).getTime() <= end);
+      // add 1 day end-of-day so "to" is inclusive
+      const end = new Date(toDate);
+      end.setHours(23, 59, 59, 999);
+      const endTime = end.getTime();
+
+      result = result.filter(
+        (o) => new Date(o.createdAt).getTime() <= endTime
+      );
     }
 
     // sort
@@ -76,7 +104,7 @@ export default function AdminOrdersPage() {
         case "DATE_ASC":
           return dateA - dateB;
         case "DATE_DESC":
-          return dateB - dateA;
+          return dateB - dateA;        // newest first (global)
         case "TOTAL_ASC":
           return totalA - totalB;
         case "TOTAL_DESC":
@@ -89,7 +117,23 @@ export default function AdminOrdersPage() {
     return result;
   }, [orders, search, statusFilter, sort, fromDate, toDate]);
 
-  // CSV EXPORT
+  /* --------------------------------------------------
+   * 4) Client-side pagination on processedOrders
+   * -------------------------------------------------- */
+  const totalPages = Math.max(
+    1,
+    Math.ceil(processedOrders.length / size)
+  );
+
+  const pagedOrders = useMemo(() => {
+    const startIdx = page * size;
+    const endIdx = startIdx + size;
+    return processedOrders.slice(startIdx, endIdx);
+  }, [processedOrders, page, size]);
+
+  /* --------------------------------------------------
+   * 5) CSV EXPORT (export all filtered orders, not only page)
+   * -------------------------------------------------- */
   const exportCSV = () => {
     if (processedOrders.length === 0) {
       alert("No orders to export.");
@@ -121,7 +165,6 @@ export default function AdminOrdersPage() {
     );
 
     const csv = [header, ...rows].join("\n");
-
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
 
@@ -133,6 +176,9 @@ export default function AdminOrdersPage() {
     URL.revokeObjectURL(url);
   };
 
+  /* --------------------------------------------------
+   * RENDER
+   * -------------------------------------------------- */
   return (
     <div className="max-w-7xl mx-auto px-6 py-8">
       {/* Header */}
@@ -180,10 +226,7 @@ export default function AdminOrdersPage() {
 
         <select
           value={size}
-          onChange={(e) => {
-            setSize(Number(e.target.value));
-            setPage(0);
-          }}
+          onChange={(e) => setSize(Number(e.target.value))}
           className="border px-3 py-2 rounded-lg"
         >
           <option value={5}>5 / page</option>
@@ -209,18 +252,22 @@ export default function AdminOrdersPage() {
       </div>
 
       {/* ORDERS LIST */}
-      {processedOrders.length === 0 ? (
+      {loading ? (
+        <p className="text-gray-500">Loading orders…</p>
+      ) : error ? (
+        <p className="text-red-500">{error}</p>
+      ) : processedOrders.length === 0 ? (
         <p className="text-gray-500">No orders match your filters.</p>
       ) : (
         <div className="space-y-6">
-          {processedOrders.map((order) => (
+          {pagedOrders.map((order) => (
             <OrderCard key={order.id} order={order} />
           ))}
         </div>
       )}
 
       {/* Pagination */}
-      {totalPages > 1 && (
+      {processedOrders.length > 0 && totalPages > 1 && (
         <div className="flex items-center justify-between mt-6">
           <button
             onClick={() => setPage((p) => Math.max(0, p - 1))}
@@ -235,7 +282,9 @@ export default function AdminOrdersPage() {
           </p>
 
           <button
-            onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+            onClick={() =>
+              setPage((p) => Math.min(totalPages - 1, p + 1))
+            }
             disabled={page === totalPages - 1}
             className="px-3 py-1 border rounded-lg disabled:opacity-40"
           >
@@ -266,15 +315,11 @@ function OrderCard({ order }) {
         { params: { status: newStatus } }
       );
 
-      // backend returns updated order; trust its status
       const updatedStatus = res.data?.status ?? newStatus;
       setLocalStatus(updatedStatus);
     } catch (err) {
       console.error("Status update failed:", err?.response?.data || err.message);
-
-      // revert to previous status
       setLocalStatus(previousStatus);
-
       const msg =
         err?.response?.data?.message ||
         "Failed to update status. Check product stock or try again.";
@@ -296,10 +341,9 @@ function OrderCard({ order }) {
 
         <div className="text-right">
           <p className="text-indigo-600 text-lg font-bold">
-            €{order.total.toFixed(2)}
+            €{Number(order.total).toFixed(2)}
           </p>
 
-          {/* Status Dropdown */}
           <select
             className="mt-1 border px-2 py-1 rounded-lg text-sm"
             disabled={updating}
@@ -340,7 +384,6 @@ function OrderCard({ order }) {
         ))}
       </div>
 
-      {/* Notes */}
       {order.notes && (
         <div className="mt-2 text-xs text-gray-500">
           <strong>Notes:</strong> {order.notes}
