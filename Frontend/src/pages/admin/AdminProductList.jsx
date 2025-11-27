@@ -76,17 +76,21 @@ export default function AdminProductList() {
   // watch search and debounce
   useEffect(() => {
     // clear previous debounce
-    if (searchTimeout.current) {
-      clearTimeout(searchTimeout.current);
-      searchTimeout.current = null;
+    if (search.trim()) {
+      setItems((prev) => {
+        const filtered = prev.filter((x) => x.id !== id);
+
+        const newTotalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+        setTotalPages(newTotalPages);
+
+        setPage((p) => Math.min(p, newTotalPages - 1));
+
+        return filtered;
+      });
+    } else {
+      load(page);  // server-paged mode
     }
 
-    // if search empty -> reset to normal paged mode and load current page
-    if (!search.trim()) {
-      // reload the current page in server-paged mode
-      load(page);
-      return;
-    }
 
     // debounce the search to avoid hammering server while typing
     searchTimeout.current = setTimeout(async () => {
