@@ -58,7 +58,6 @@ public class ProductPublicController {
     // ----------------------------
     @GetMapping("/{slug}")
     public ResponseEntity<ProductResponse> get(@PathVariable String slug) {
-        // 🔐 Keep status filter, but make sure repo has this method
         return productRepo.findBySlugAndStatus(slug, "PUBLISHED")
                 .map(p -> ResponseEntity.ok(toProductResponse(p)))
                 .orElse(ResponseEntity.notFound().build());
@@ -73,41 +72,10 @@ public class ProductPublicController {
             @RequestParam String gender,
             @RequestParam String category
     ) {
-        Gender genderEnum;
-        try {
-            genderEnum = Gender.valueOf(gender.toUpperCase());
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().build();
-        }
-
-        // case-insensitive search by category name + gender
-        List<Category> categories =
-                categoryRepo.searchCategoryByNameContains(category, genderEnum);
-
-        if (categories.isEmpty()) {
-            return ResponseEntity.ok(List.of());
-        }
-
-        Category cat = categories.get(0);
-
-        List<Product> products =
-                productRepo.findByCategoryAndStatus(cat.getId(), "PUBLISHED");
-
-        List<ProductResponse> response =
-                products.stream().map(this::toProductResponse).toList();
-
-        return ResponseEntity.ok(response);
-    }
-
-    @GetMapping("/by-category")
-    public ResponseEntity<List<ProductResponse>> filterProducts(
-            @RequestParam String gender,
-            @RequestParam String category
-    ) {
         return doFilterByGenderAndCategory(gender, category);
     }
 
-    // NEW: alias matching frontend URL: /api/products/filter
+    // Alias matching frontend URL: /api/products/filter?gender=&category=
     @GetMapping("/filter")
     public ResponseEntity<List<ProductResponse>> filterProductsAlias(
             @RequestParam String gender,
@@ -116,7 +84,7 @@ public class ProductPublicController {
         return doFilterByGenderAndCategory(gender, category);
     }
 
-    // Shared logic
+    // Shared logic for both endpoints
     private ResponseEntity<List<ProductResponse>> doFilterByGenderAndCategory(
             String gender,
             String category
@@ -128,6 +96,7 @@ public class ProductPublicController {
             return ResponseEntity.badRequest().build();
         }
 
+        // case-insensitive search by category name + gender
         List<Category> categories =
                 categoryRepo.searchCategoryByNameContains(category, genderEnum);
 
