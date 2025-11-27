@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import axiosAuth from "../../api/axiosAuth";
+import http from "../lib/http";
 
 const STATUS_OPTIONS = ["ALL", "PENDING", "PAID", "SHIPPED", "CANCELLED"];
 const STATUS_UPDATE_OPTIONS = ["PENDING", "PAID", "SHIPPED", "CANCELLED"];
@@ -28,8 +28,10 @@ export default function AdminOrdersPage() {
     setLoading(true);
     setError(null);
 
-    axiosAuth
-      .get(`/admin/orders?page=0&size=1000`)
+    http
+      .get("/admin/orders", {
+        params: { page: 0, size: 1000 },
+      })
       .then((res) => {
         const content = res.data?.content || [];
         setOrders(content);
@@ -40,6 +42,7 @@ export default function AdminOrdersPage() {
       })
       .finally(() => setLoading(false));
   }, []);
+
 
   /* --------------------------------------------------
    * 2) Whenever filters/search/sort change, reset to
@@ -309,7 +312,7 @@ function OrderCard({ order }) {
     setUpdating(true);
 
     try {
-      const res = await axiosAuth.patch(
+      const res = await http.patch(
         `/admin/orders/${order.id}/status`,
         null,
         { params: { status: newStatus } }
