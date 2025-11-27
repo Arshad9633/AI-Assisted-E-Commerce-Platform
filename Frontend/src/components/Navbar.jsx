@@ -4,7 +4,7 @@ import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
 import { ChevronDown, ShoppingCart, Bell, Check } from "lucide-react";
 import axiosAuth from "../api/axiosAuth";
-import http from "../api/http";
+import http from "../lib/http";
 
 export default function Navbar() {
   const { name, email, isAuthenticated, logout } = useAuth();
