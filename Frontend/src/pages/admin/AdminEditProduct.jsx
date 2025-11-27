@@ -11,7 +11,7 @@ import {
 import { uploadImage } from "../../api/upload";
 import { ADMIN_BASE } from "../../config/routes";
 
-import AdminNavbar from "../../components/AdminNavbar";
+import AdminNavbar from "../../components/AdminNavBar";
 
 const GENDERS = ["MEN", "WOMEN"];
 const STATUSES = ["DRAFT", "PUBLISHED", "ARCHIVED"];
