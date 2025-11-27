@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import http from "../lib/http";
-
+import http from "../../lib/http";
 const STATUS_OPTIONS = ["ALL", "PENDING", "PAID", "SHIPPED", "CANCELLED"];
 const STATUS_UPDATE_OPTIONS = ["PENDING", "PAID", "SHIPPED", "CANCELLED"];
 
