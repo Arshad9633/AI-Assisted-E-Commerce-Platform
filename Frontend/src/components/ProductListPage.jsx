@@ -1,8 +1,8 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { Link, useParams } from "react-router-dom";
-import axios from "axios";
 import Navbar from "./Navbar";
 import { Search, Sliders, ChevronDown } from "lucide-react";
+import http from "../lib/http";
 
 export default function ProductListPage() {
   const { gender, categorySlug } = useParams();
@@ -35,18 +35,27 @@ export default function ProductListPage() {
     if (gender) params.gender = gender.toUpperCase(); // MEN / WOMEN
     if (categoryName) params.category = categoryName; // e.g. "Accessories"
 
-    axios
-      .get("/api/products/filter", { params })
+    http
+      .get("/products/filter", { params }) // baseURL already has /api
       .then((res) => {
-        setProducts(Array.isArray(res.data) ? res.data : []);
+        const data = res.data;
+        const list = Array.isArray(data)
+          ? data
+          : Array.isArray(data?.content)
+          ? data.content
+          : [];
+        setProducts(list);
       })
       .catch((err) => {
-        console.error(err);
-        setError(err?.response?.data?.message ?? err.message);
+        console.error("PRODUCT LIST ERROR:", err);
+        setError(
+          err?.response?.data?.message ?? "Failed to load products. Please try again."
+        );
         setProducts([]);
       })
       .finally(() => setLoading(false));
   }, [gender, categoryName]);
+
 
   // Filtering + sorting on client
   const filtered = useMemo(() => {

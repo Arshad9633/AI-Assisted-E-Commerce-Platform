@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import axios from "axios";
+import http from "../lib/http";
 import Navbar from "./Navbar";
 import { ShoppingCart, Star, Plus, Minus, Heart, Truck } from "lucide-react";
 import { useCart } from "../context/CartContext";
@@ -18,16 +18,18 @@ export default function ProductPage() {
   const [activeTab, setActiveTab] = useState("details");
 
   // 🔹 Load ONE product by slug
-  useEffect(() => {
+ useEffect(() => {
     window.scrollTo(0, 0);
     setLoading(true);
 
-    axios
-      .get(`/api/products/${slug}`)
+    http
+      .get(`/products/${slug}`) // baseURL already /api
       .then((res) => {
         const p = res.data;
         setProduct(p);
-        setSelectedImage(p.images?.[0]?.url ?? null);
+
+        const firstImg = p.images?.[0];
+        setSelectedImage(firstImg?.url ?? firstImg ?? null);
 
         const stock = p.stock ?? 0;
         if (stock <= 0) {
@@ -41,7 +43,7 @@ export default function ProductPage() {
         setProduct(null);
       })
       .finally(() => setLoading(false));
-  }, [slug]); // ✅ depends only on slug
+  }, [slug]);
 
   const safeStock = typeof product?.stock === "number" ? product.stock : 0;
   const isOutOfStock = safeStock <= 0;
