@@ -1,20 +1,39 @@
-FROM maven:3.9-eclipse-temurin-21 AS build
+# ---------------------------
+# Build Stage
+# ---------------------------
+FROM maven:3.9.9-eclipse-temurin-17 AS build
+
 WORKDIR /app
 
-COPY commerce-api/commerce-api/pom.xml ./pom.xml
-RUN mvn -B -q -DskipTests dependency:go-offline
+# Copy Maven descriptor first for caching
+COPY pom.xml .
 
-COPY commerce-api/commerce-api/src ./src
-RUN mvn -B -q clean package -DskipTests
+# Pre-download dependencies
+RUN mvn -q -DskipTests dependency:go-offline
 
-FROM eclipse-temurin:21-jre-jammy
+# Copy source
+COPY src ./src
+
+# Build the JAR
+RUN mvn -q -DskipTests clean package
+
+# ---------------------------
+# Run Stage
+# ---------------------------
+FROM eclipse-temurin:17-jre
+
 WORKDIR /app
 
-RUN useradd -r -u 1001 appuser
-USER appuser
+# Copy the built jar from Maven build stage
+COPY --from=build /app/target/*.jar app.jar
 
-COPY --from=build /app/target/*.jar /app/app.jar
+# Render sets PORT dynamically, don't hardcode 8000
+ENV PORT=8080
 
-EXPOSE 8000
-ENV JAVA_OPTS=""
-ENTRYPOINT ["sh","-c","java $JAVA_OPTS -jar /app/app.jar"]
+# Tell Spring Boot to use Render's port
+ENV JAVA_OPTS="-Dserver.port=${PORT}"
+
+EXPOSE 8080
+
+# Start the Spring Boot JAR
+ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]
