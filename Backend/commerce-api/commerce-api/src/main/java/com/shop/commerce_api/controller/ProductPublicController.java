@@ -99,6 +99,52 @@ public class ProductPublicController {
         return ResponseEntity.ok(response);
     }
 
+    @GetMapping("/by-category")
+    public ResponseEntity<List<ProductResponse>> filterProducts(
+            @RequestParam String gender,
+            @RequestParam String category
+    ) {
+        return doFilterByGenderAndCategory(gender, category);
+    }
+
+    // NEW: alias matching frontend URL: /api/products/filter
+    @GetMapping("/filter")
+    public ResponseEntity<List<ProductResponse>> filterProductsAlias(
+            @RequestParam String gender,
+            @RequestParam String category
+    ) {
+        return doFilterByGenderAndCategory(gender, category);
+    }
+
+    // Shared logic
+    private ResponseEntity<List<ProductResponse>> doFilterByGenderAndCategory(
+            String gender,
+            String category
+    ) {
+        Gender genderEnum;
+        try {
+            genderEnum = Gender.valueOf(gender.toUpperCase());
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        List<Category> categories =
+                categoryRepo.searchCategoryByNameContains(category, genderEnum);
+
+        if (categories.isEmpty()) {
+            return ResponseEntity.ok(List.of());
+        }
+
+        Category cat = categories.get(0);
+
+        List<Product> products =
+                productRepo.findByCategoryAndStatus(cat.getId(), "PUBLISHED");
+
+        List<ProductResponse> response =
+                products.stream().map(this::toProductResponse).toList();
+
+        return ResponseEntity.ok(response);
+    }
 
     // ----------------------------
     // Helpers
