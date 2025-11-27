@@ -7,31 +7,37 @@ import { Search } from "lucide-react";
 export default function AdminProductList() {
   const navigate = useNavigate();
 
-  const [page, setPage] = useState(0);            // current page (0-based)
+  const [page, setPage] = useState(0); // current page (0-based)
   const PAGE_SIZE = 6;
 
-  const [items, setItems] = useState([]);        // current items (either current page OR filtered results when searching)
+  const [items, setItems] = useState([]);   // items for current view
   const [totalPages, setTotalPages] = useState(1);
   const [search, setSearch] = useState("");
 
   const searchTimeout = useRef(null);
 
-  // load a single page (normal mode)
+  const isSearching = search.trim().length > 0;
+
+  /* -----------------------------
+   * 1) Normal mode: backend paging
+   * ----------------------------- */
   useEffect(() => {
-    // only load page-mode when there's no active search
-    if (search.trim()) return;
+    if (isSearching) return; // when searching, don't load page-by-page
+
     load(page);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, search]);
+  }, [page, isSearching]);
 
   async function load(p = 0) {
     try {
       const res = await getAdminProducts(p, PAGE_SIZE);
-      // backend may return { items, totalPages } or an array
+
       if (Array.isArray(res)) {
+        // backend returns full array
         setItems(res);
         setTotalPages(Math.max(1, Math.ceil(res.length / PAGE_SIZE)));
       } else {
+        // backend returns { items, totalPages }
         setItems(res.items || []);
         setTotalPages(res.totalPages || 1);
       }
@@ -41,20 +47,20 @@ export default function AdminProductList() {
     }
   }
 
-  // function to fetch ALL pages then return merged items
+  /* ---------------------------------------
+   * 2) Helper: fetch ALL pages then merge
+   * --------------------------------------- */
   async function fetchAllPagesAndMerge() {
     try {
-      // first call to obtain totalPages or possibly the full array
       const first = await getAdminProducts(0, PAGE_SIZE);
 
       if (Array.isArray(first)) {
-        // backend returned full array (no paging)
         return first;
       }
 
       const pages = first.totalPages || 1;
-      // gather promises for all pages (we already have page 0)
       const promises = [];
+
       for (let i = 0; i < pages; i++) {
         if (i === 0) {
           promises.push(Promise.resolve(first));
@@ -62,10 +68,12 @@ export default function AdminProductList() {
           promises.push(getAdminProducts(i, PAGE_SIZE));
         }
       }
-      const results = await Promise.all(promises);
 
-      // flatten items from each page result
-      const allItems = results.flatMap((r) => (Array.isArray(r) ? r : r.items || []));
+      const results = await Promise.all(promises);
+      const allItems = results.flatMap((r) =>
+        Array.isArray(r) ? r : r.items || []
+      );
+
       return allItems;
     } catch (err) {
       console.error("Failed to fetch all pages:", err);
@@ -73,32 +81,26 @@ export default function AdminProductList() {
     }
   }
 
-  // watch search and debounce
+  /* ---------------------------------------
+   * 3) Search effect (debounced, client-side)
+   * --------------------------------------- */
   useEffect(() => {
-    // clear previous debounce
-    if (search.trim()) {
-      setItems((prev) => {
-        const filtered = prev.filter((x) => x.id !== id);
-
-        const newTotalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-        setTotalPages(newTotalPages);
-
-        setPage((p) => Math.min(p, newTotalPages - 1));
-
-        return filtered;
-      });
-    } else {
-      load(page);  // server-paged mode
+    // clear old timer
+    if (searchTimeout.current) {
+      clearTimeout(searchTimeout.current);
+      searchTimeout.current = null;
     }
 
+    // if search is empty -> let the other effect handle normal paging
+    if (!isSearching) {
+      return;
+    }
 
-    // debounce the search to avoid hammering server while typing
+    // debounce
     searchTimeout.current = setTimeout(async () => {
       try {
-        // fetch all items across pages, then filter client-side
         const all = await fetchAllPagesAndMerge();
 
-        // guard: if no items, empty result
         if (!all || all.length === 0) {
           setItems([]);
           setTotalPages(1);
@@ -108,21 +110,21 @@ export default function AdminProductList() {
 
         const q = search.toLowerCase().trim();
         const matched = all.filter((p) => {
-          const txt = `${p.title || ""} ${p.slug || ""} ${p.categoryName || ""}`.toLowerCase();
+          const txt = `${p.title || ""} ${p.slug || ""} ${
+            p.categoryName || ""
+          }`.toLowerCase();
           return txt.includes(q);
         });
 
-        // set items to matched results and prepare client-side pagination
         setItems(matched);
         setTotalPages(Math.max(1, Math.ceil(matched.length / PAGE_SIZE)));
-        setPage(0); // show first page of matches
+        setPage(0);
       } catch (err) {
         console.error("Search failed:", err);
         toast.error("Search failed");
       }
     }, 300);
 
-    // cleanup on unmount or next change
     return () => {
       if (searchTimeout.current) {
         clearTimeout(searchTimeout.current);
@@ -130,29 +132,43 @@ export default function AdminProductList() {
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search]);
+  }, [search, isSearching]);
 
-  // client-side filtered items for the current page view
+  /* ---------------------------------------
+   * 4) View for current page
+   * --------------------------------------- */
   const start = page * PAGE_SIZE;
-  const pagedView = items.slice(start, start + PAGE_SIZE);
 
-  // UI handlers
+  const pagedView = isSearching
+    ? items.slice(start, start + PAGE_SIZE) // client-side pagination in search
+    : items;                                // backend already paged
+
+  /* ---------------------------------------
+   * 5) Delete handler
+   * --------------------------------------- */
   const onDelete = async (id) => {
     if (!confirm("Delete this product?")) return;
+
     try {
       await deleteProduct(id);
-      // if we are in search mode (search active), refetch the filtered list:
-      if (search.trim()) {
-        // re-run search: simply remove the item from current items
-        setItems((prev) => prev.filter((x) => x.id !== id));
-        // recalc totalPages
-        setTotalPages((prev) => Math.max(1, Math.ceil(Math.max(0, items.length - 1) / PAGE_SIZE)));
-        // ensure page within bounds
-        setPage((p) => Math.min(p, Math.max(0, Math.ceil((items.length - 1) / PAGE_SIZE) - 1)));
+
+      if (isSearching) {
+        // in search mode, just update client list & pagination
+        setItems((prev) => {
+          const filtered = prev.filter((x) => x.id !== id);
+          const newTotalPages = Math.max(
+            1,
+            Math.ceil(filtered.length / PAGE_SIZE)
+          );
+          setTotalPages(newTotalPages);
+          setPage((p) => Math.min(p, newTotalPages - 1));
+          return filtered;
+        });
       } else {
         // normal mode: reload current page from server
         load(page);
       }
+
       toast.success("Deleted");
     } catch (err) {
       console.error("Delete failed:", err);
@@ -160,6 +176,9 @@ export default function AdminProductList() {
     }
   };
 
+  /* ---------------------------------------
+   * RENDER
+   * --------------------------------------- */
   return (
     <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
       {/* HEADER */}
@@ -174,7 +193,7 @@ export default function AdminProductList() {
             value={search}
             onChange={(e) => {
               setSearch(e.target.value);
-              setPage(0); // reset page to first whenever search changes
+              setPage(0);
             }}
             className="pl-10 w-full rounded-xl border-gray-300 shadow-sm"
           />
@@ -220,18 +239,20 @@ export default function AdminProductList() {
 
                 <td className="py-3 px-4 text-center flex gap-4 justify-center text-sm">
                   <button
-                    onClick={() => navigate(`/home/admin/products/${p.id}/edit`)}
+                    onClick={() =>
+                      navigate(`/home/admin/products/${p.id}/edit`)
+                    }
                     className="text-blue-600 hover:underline"
                   >
                     Edit
                   </button>
 
-                  <button
-                    onClick={() => onDelete(p.id)}
-                    className="text-red-600 hover:underline"
-                  >
-                    Delete
-                  </button>
+                    <button
+                      onClick={() => onDelete(p.id)}
+                      className="text-red-600 hover:underline"
+                    >
+                      Delete
+                    </button>
                 </td>
               </tr>
             ))}
