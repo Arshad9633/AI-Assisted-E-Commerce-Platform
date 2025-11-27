@@ -31,30 +31,36 @@ export default function ProductListPage() {
     setLoading(true);
     setError(null);
 
-    const params = {};
-    if (gender) params.gender = gender.toUpperCase(); // MEN / WOMEN
-    if (categoryName) params.category = categoryName; // e.g. "Accessories"
+    // if route params missing, just show empty state
+    if (!gender || !categoryName) {
+      setProducts([]);
+      setLoading(false);
+      return;
+    }
 
     http
-      .get("/products/filter", { params }) // baseURL already has /api
+      .get("/products/by-category", {
+        params: {
+          gender: gender.toUpperCase(), // MEN / WOMEN
+          category: categoryName,       // e.g. "Bag" (from slug "bag")
+        },
+      })
       .then((res) => {
         const data = res.data;
-        const list = Array.isArray(data)
-          ? data
-          : Array.isArray(data?.content)
-          ? data.content
-          : [];
+        const list = Array.isArray(data) ? data : [];
         setProducts(list);
       })
       .catch((err) => {
         console.error("PRODUCT LIST ERROR:", err);
         setError(
-          err?.response?.data?.message ?? "Failed to load products. Please try again."
+          err?.response?.data?.message ??
+            "Failed to load products. Please try again."
         );
         setProducts([]);
       })
       .finally(() => setLoading(false));
   }, [gender, categoryName]);
+
 
 
   // Filtering + sorting on client
