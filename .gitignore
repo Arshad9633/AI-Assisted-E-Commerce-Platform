@@ -2,8 +2,6 @@
 .env
 **/.env
 
-# But KEEP the frontend ones
-!frontend/.env
 
 # build outputs
 target/

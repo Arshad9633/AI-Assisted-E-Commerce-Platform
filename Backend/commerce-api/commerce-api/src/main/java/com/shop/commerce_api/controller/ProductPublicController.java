@@ -58,6 +58,7 @@ public class ProductPublicController {
     // ----------------------------
     @GetMapping("/{slug}")
     public ResponseEntity<ProductResponse> get(@PathVariable String slug) {
+        // 🔐 Keep status filter, but make sure repo has this method
         return productRepo.findBySlugAndStatus(slug, "PUBLISHED")
                 .map(p -> ResponseEntity.ok(toProductResponse(p)))
                 .orElse(ResponseEntity.notFound().build());
@@ -71,23 +72,6 @@ public class ProductPublicController {
     public ResponseEntity<List<ProductResponse>> filterProducts(
             @RequestParam String gender,
             @RequestParam String category
-    ) {
-        return doFilterByGenderAndCategory(gender, category);
-    }
-
-    // Alias matching frontend URL: /api/products/filter?gender=&category=
-    @GetMapping("/filter")
-    public ResponseEntity<List<ProductResponse>> filterProductsAlias(
-            @RequestParam String gender,
-            @RequestParam String category
-    ) {
-        return doFilterByGenderAndCategory(gender, category);
-    }
-
-    // Shared logic for both endpoints
-    private ResponseEntity<List<ProductResponse>> doFilterByGenderAndCategory(
-            String gender,
-            String category
     ) {
         Gender genderEnum;
         try {
