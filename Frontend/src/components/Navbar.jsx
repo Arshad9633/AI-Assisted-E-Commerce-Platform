@@ -4,7 +4,7 @@ import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
 import { ChevronDown, ShoppingCart, Bell, Check } from "lucide-react";
 import axiosAuth from "../api/axiosAuth";
-import axios from "axios";
+import http from "../api/http";
 
 export default function Navbar() {
   const { name, email, isAuthenticated, logout } = useAuth();
@@ -77,9 +77,13 @@ export default function Navbar() {
   // Categories
   // ---------------------
   const [categories, setCategories] = useState([]);
-  const menCategories = categories.filter((c) => c.gender === "MEN");
-  const womenCategories = categories.filter((c) => c.gender === "WOMEN");
+  const menCategories = Array.isArray(categories)
+  ? categories.filter((c) => c.gender === "MEN")
+  : [];
 
+  const womenCategories = Array.isArray(categories)
+    ? categories.filter((c) => c.gender === "WOMEN")
+    : [];
   const cartCount = cartItems.reduce(
     (sum, item) => sum + (item.quantity || 0),
     0
@@ -90,10 +94,23 @@ export default function Navbar() {
 
   // Fetch categories
   useEffect(() => {
-    axios
-      .get("/api/catalog/categories")
-      .then((res) => setCategories(res.data))
-      .catch(() => setCategories([]));
+    http
+      .get("/catalog/categories") // baseURL already ends with /api
+      .then((res) => {
+        const data = res.data;
+
+        const list = Array.isArray(data)
+          ? data
+          : Array.isArray(data?.content)
+          ? data.content
+          : [];
+
+        setCategories(list);
+      })
+      .catch((err) => {
+        console.error("CATEGORIES ERROR:", err);
+        setCategories([]);
+      });
   }, []);
 
   // Scroll detection
