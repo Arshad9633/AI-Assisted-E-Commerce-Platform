@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState } from "react";
-import axiosAuth from "../api/axiosAuth";
 import { useAuth } from "./AuthContext";
+import http from "../lib/http";
 
 const CartContext = createContext(null);
 
@@ -35,7 +35,7 @@ export function CartProvider({ children }) {
     // Only persist to DB when authenticated
     if (isAuthenticated) {
       try {
-        await axiosAuth.put("/cart", { items });
+        await http.put("/cart", { items });
       } catch (err) {
         console.error("❌ Cart DB update failed:", err);
       }
@@ -56,7 +56,7 @@ export function CartProvider({ children }) {
           JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]") || [];
 
         // Load DB cart
-        const { data } = await axiosAuth.get("/cart");
+        const { data } = await http.get("/cart");
         const dbItems = data.items || [];
 
         // Start from DB items
@@ -144,7 +144,7 @@ export function CartProvider({ children }) {
 
     if (isAuthenticated) {
       try {
-        await axiosAuth.delete("/cart");
+        await http.delete("/cart");
       } catch (err) {
         console.error("❌ Failed to clear DB cart:", err);
       }
